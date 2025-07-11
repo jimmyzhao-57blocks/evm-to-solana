@@ -1,66 +1,58 @@
-## Foundry
+# EVM Token Staking
 
-**Foundry is a blazing fast, portable and modular toolkit for Ethereum application development written in Rust.**
+A Token Staking contract implementation using Foundry framework. Users can stake MyToken to earn RewardToken based on staking duration.
 
-Foundry consists of:
+## Features
 
--   **Forge**: Ethereum testing framework (like Truffle, Hardhat and DappTools).
--   **Cast**: Swiss army knife for interacting with EVM smart contracts, sending transactions and getting chain data.
--   **Anvil**: Local Ethereum node, akin to Ganache, Hardhat Network.
--   **Chisel**: Fast, utilitarian, and verbose solidity REPL.
+- Stake MyToken to earn RewardToken
+- Flexible unstaking (partial or full)
+- Claim rewards separately
+- Configurable reward rate
 
-## Documentation
+## Setup
 
-https://book.getfoundry.sh/
-
-## Usage
-
-### Build
-
-```shell
-$ forge build
+1. Install dependencies:
+```bash
+forge install
 ```
 
-### Test
-
-```shell
-$ forge test
+2. Copy environment variables:
+```bash
+cp .env.example .env
 ```
 
-### Format
+3. Configure your `.env` file with:
+   - `SEPOLIA_RPC_URL`: Your Sepolia RPC endpoint
+   - `PRIVATE_KEY`: Your wallet private key
+   - `ETHERSCAN_API_KEY`: For contract verification
 
-```shell
-$ forge fmt
+## Testing
+
+Run all tests:
+```bash
+forge test
 ```
 
-### Gas Snapshots
-
-```shell
-$ forge snapshot
+Run with gas reporting:
+```bash
+forge test --gas-report
 ```
 
-### Anvil
+## Deployment
 
-```shell
-$ anvil
+Deploy to Sepolia testnet:
+```bash
+forge script script/Deploy.s.sol --rpc-url $SEPOLIA_RPC_URL --broadcast --verify
 ```
 
-### Deploy
+## Contract Architecture
 
-```shell
-$ forge script script/Counter.s.sol:CounterScript --rpc-url <your_rpc_url> --private-key <your_private_key>
-```
+- `MyToken.sol`: The stakeable ERC20 token
+- `RewardToken.sol`: The reward ERC20 token
+- `Staking.sol`: Main staking logic contract
 
-### Cast
+## Security Considerations
 
-```shell
-$ cast <subcommand>
-```
-
-### Help
-
-```shell
-$ forge --help
-$ anvil --help
-$ cast --help
-```
+- ReentrancyGuard protection
+- Owner-only functions for configuration
+- Safe math operations (Solidity 0.8.20+)
