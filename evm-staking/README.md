@@ -12,11 +12,13 @@ A Token Staking contract implementation using Foundry framework. Users can stake
 ## Setup
 
 1. Install dependencies:
+
 ```bash
 forge install
 ```
 
 2. Copy environment variables:
+
 ```bash
 cp .env.example .env
 ```
@@ -29,11 +31,13 @@ cp .env.example .env
 ## Testing
 
 Run all tests:
+
 ```bash
 forge test
 ```
 
 Run with gas reporting:
+
 ```bash
 forge test --gas-report
 ```
@@ -41,8 +45,9 @@ forge test --gas-report
 ## Deployment
 
 Deploy to Sepolia testnet:
+
 ```bash
-forge script script/Deploy.s.sol --rpc-url $SEPOLIA_RPC_URL --broadcast --verify
+forge script script/Deploy.s.sol --rpc-url sepolia --broadcast --verify
 ```
 
 ## Contract Architecture
