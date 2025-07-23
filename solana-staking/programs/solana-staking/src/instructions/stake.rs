@@ -70,7 +70,7 @@ pub fn stake_handler(ctx: Context<Stake>, amount: u64) -> Result<()> {
                 authority: state.to_account_info(),
             };
             let cpi_program = ctx.accounts.token_program.to_account_info();
-            let cpi_ctx = CpiContext::new_with_signer(cpi_program, cpi_accounts, signer);
+            let _cpi_ctx = CpiContext::new_with_signer(cpi_program, cpi_accounts, signer);
             
             // Note: In real implementation, we'd transfer from reward_vault
             // For now, skipping actual reward transfer
