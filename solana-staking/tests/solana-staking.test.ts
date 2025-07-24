@@ -2,28 +2,22 @@ import { assert } from "chai";
 import * as programClient from "../dist/js-client";
 import {
   getGlobalStateDecoder,
+  getUserStakeInfoDecoder,
   GLOBAL_STATE_DISCRIMINATOR,
+  USER_STAKE_INFO_DISCRIMINATOR,
 } from "../dist/js-client";
-import {
-  type KeyPairSigner,
-  type Address,
-  pipe,
-  appendTransactionMessageInstruction,
-} from "@solana/kit";
+import { type KeyPairSigner, type Address, MaybeAccount } from "@solana/kit";
 import { connect, Connection } from "solana-kite";
 import {
   TOKEN_PROGRAM_ADDRESS,
   fetchMint,
   fetchToken,
-  getMintToInstruction,
 } from "@solana-program/token";
 import {
   createDefaultSolanaClient,
-  createDefaultTransaction,
   createMint,
   createToken,
   createTokenWithAmount,
-  signAndSendTransaction,
 } from "./_setup";
 
 export const log = console.log;
@@ -37,11 +31,19 @@ describe("solana-staking", () => {
   let admin: KeyPairSigner;
   let user: KeyPairSigner;
   let connection: Connection;
+  let getGlobalState: () => Promise<
+    Array<MaybeAccount<programClient.GlobalState, string>>
+  >;
+  let getUserStakeInfo: () => Promise<
+    Array<MaybeAccount<programClient.UserStakeInfo, string>>
+  >;
 
   // Test accounts
   let stakingMint: Address;
   let rewardMint: Address;
+  let adminStakingToken: Address;
   let userStakingToken: Address;
+  let userRewardToken: Address;
 
   // PDAs
   let statePda: Address;
@@ -53,37 +55,55 @@ describe("solana-staking", () => {
     connection = await connect();
     [admin, user] = await connection.createWallets(2);
 
+    getGlobalState = connection.getAccountsFactory(
+      programClient.SOLANA_STAKING_PROGRAM_ADDRESS,
+      GLOBAL_STATE_DISCRIMINATOR,
+      getGlobalStateDecoder()
+    );
+    getUserStakeInfo = connection.getAccountsFactory(
+      programClient.SOLANA_STAKING_PROGRAM_ADDRESS,
+      USER_STAKE_INFO_DISCRIMINATOR,
+      getUserStakeInfoDecoder()
+    );
+
     const client = createDefaultSolanaClient();
     // Create staking token mint
-    stakingMint = await createMint(client, admin, admin.address, 9);
-    // Create reward token mint
-    rewardMint = await createMint(client, admin, admin.address, 9);
+    [stakingMint, rewardMint] = await Promise.all([
+      createMint(client, admin, admin.address, 9),
+      createMint(client, admin, admin.address, 9),
+    ]);
 
-    const stakingToken = await createTokenWithAmount(
-      client,
-      admin,
-      admin,
-      stakingMint,
-      admin.address,
-      1000n
-    );
-    userStakingToken = await createTokenWithAmount(
-      client,
-      admin,
-      admin,
-      stakingMint,
-      user.address,
-      500n
-    );
+    [adminStakingToken, userStakingToken, userRewardToken] = await Promise.all([
+      createTokenWithAmount(
+        client,
+        admin,
+        admin,
+        stakingMint,
+        admin.address,
+        1000n
+      ),
+      createTokenWithAmount(
+        client,
+        admin,
+        admin,
+        stakingMint,
+        user.address,
+        500n
+      ),
+      createToken(client, admin, rewardMint, user.address),
+    ]);
     // Then we expect the mint and token accounts to have the following updated data.
-    const [{ data: mintData }, { data: tokenData }, { data: userTokenData }] =
-      await Promise.all([
-        fetchMint(client.rpc, stakingMint),
-        fetchToken(client.rpc, stakingToken),
-        fetchToken(client.rpc, userStakingToken),
-      ]);
+    const [
+      { data: mintData },
+      { data: adminTokenData },
+      { data: userTokenData },
+    ] = await Promise.all([
+      fetchMint(client.rpc, stakingMint),
+      fetchToken(client.rpc, adminStakingToken),
+      fetchToken(client.rpc, userStakingToken),
+    ]);
     console.log("mintData supply", mintData.supply);
-    console.log("tokenData amount", tokenData.amount);
+    console.log("adminTokenData amount", adminTokenData.amount);
     console.log("userTokenData amount", userTokenData.amount);
     // Create an address for "state"
     const statePdaAndBump = await connection.getPDAAndBump(
@@ -120,7 +140,6 @@ describe("solana-staking", () => {
       rewardMint: rewardMint,
       stakingVault: stakingVaultPda,
       rewardVault: rewardVaultPda,
-      // systemProgram: SystemProgram.programId,
       tokenProgram: TOKEN_PROGRAM_ADDRESS,
       rewardRate: 500,
     });
@@ -129,12 +148,6 @@ describe("solana-staking", () => {
       instructions: [initializeInstruction],
     });
     console.log("Transaction signature", signature);
-
-    const getGlobalState = connection.getAccountsFactory(
-      programClient.SOLANA_STAKING_PROGRAM_ADDRESS,
-      GLOBAL_STATE_DISCRIMINATOR,
-      getGlobalStateDecoder()
-    );
 
     const globalState = await getGlobalState();
     // @ts-expect-error the 'data' property does actually exist.
@@ -151,24 +164,52 @@ describe("solana-staking", () => {
   });
 
   it("User can stake tokens", async () => {
+    const stakeAmount = 100n;
     const stakeInstruction = await programClient.getStakeInstruction({
       user: user,
       state: statePda,
       userStakeInfo: userStakeInfoPda,
       userTokenAccount: userStakingToken,
       stakingVault: stakingVaultPda,
-      // systemProgram: SystemProgram.programId,
       tokenProgram: TOKEN_PROGRAM_ADDRESS,
-      amount: 100n,
+      amount: stakeAmount,
     });
     const signature = await connection.sendTransactionFromInstructions({
       feePayer: user,
       instructions: [stakeInstruction],
     });
     console.log("Transaction signature", signature);
+
+    // Verify user stake info
+    const userStakeInfo = await getUserStakeInfo();
+    // @ts-expect-error the 'data' property does actually exist.
+    const firstUserStakeInfo = userStakeInfo[0].data;
+    assert.equal(firstUserStakeInfo.owner.toString(), user.address.toString());
+    assert.equal(firstUserStakeInfo.amount, 100n);
+    assert.equal(firstUserStakeInfo.rewardDebt, 0n);
+
+    // Verify global state
+    const globalState = await getGlobalState();
+    // @ts-expect-error the 'data' property does actually exist.
+    const firstGlobalState = globalState[0].data;
+    assert.equal(firstGlobalState.totalStaked, stakeAmount);
   });
 
-  it("User can claim rewards", async () => {});
+  it("User can claim rewards", async () => {
+    const claimInstruction = await programClient.getClaimRewardsInstruction({
+      user: user,
+      state: statePda,
+      userStakeInfo: userStakeInfoPda,
+      userRewardAccount: userRewardToken,
+      rewardVault: rewardVaultPda,
+      tokenProgram: TOKEN_PROGRAM_ADDRESS,
+    });
+    const signature = await connection.sendTransactionFromInstructions({
+      feePayer: user,
+      instructions: [claimInstruction],
+    });
+    console.log("Transaction signature", signature);
+  });
 
   it("User can unstake tokens", async () => {});
 });
