@@ -44,6 +44,7 @@ describe("solana-staking", () => {
   let adminStakingToken: Address;
   let userStakingToken: Address;
   let userRewardToken: Address;
+  let adminRewardToken: Address;
 
   // PDAs
   let statePda: Address;
@@ -73,38 +74,50 @@ describe("solana-staking", () => {
       createMint(client, admin, admin.address, 9),
     ]);
 
-    [adminStakingToken, userStakingToken, userRewardToken] = await Promise.all([
-      createTokenWithAmount(
-        client,
-        admin,
-        admin,
-        stakingMint,
-        admin.address,
-        1000n
-      ),
-      createTokenWithAmount(
-        client,
-        admin,
-        admin,
-        stakingMint,
-        user.address,
-        500n
-      ),
-      createToken(client, admin, rewardMint, user.address),
-    ]);
+    [adminStakingToken, userStakingToken, adminRewardToken, userRewardToken] =
+      await Promise.all([
+        createTokenWithAmount(
+          client,
+          admin,
+          admin,
+          stakingMint,
+          admin.address,
+          1000n
+        ),
+        createTokenWithAmount(
+          client,
+          admin,
+          admin,
+          stakingMint,
+          user.address,
+          500n
+        ),
+        createTokenWithAmount(
+          client,
+          admin,
+          admin,
+          rewardMint,
+          admin.address,
+          1000n
+        ),
+        createToken(client, admin, rewardMint, user.address),
+      ]);
     // Then we expect the mint and token accounts to have the following updated data.
     const [
-      { data: mintData },
-      { data: adminTokenData },
+      { data: stakingMintData },
       { data: userTokenData },
+      { data: rewardMintData },
+      { data: userRewardTokenData },
     ] = await Promise.all([
       fetchMint(client.rpc, stakingMint),
-      fetchToken(client.rpc, adminStakingToken),
       fetchToken(client.rpc, userStakingToken),
+      fetchMint(client.rpc, rewardMint),
+      fetchToken(client.rpc, userRewardToken),
     ]);
-    console.log("mintData supply", mintData.supply);
-    console.log("adminTokenData amount", adminTokenData.amount);
+    console.log("stakingMintData supply", stakingMintData.supply);
     console.log("userTokenData amount", userTokenData.amount);
+    console.log("rewardMintData supply", rewardMintData.supply);
+    console.log("userRewardTokenData amount", userRewardTokenData.amount);
     // Create an address for "state"
     const statePdaAndBump = await connection.getPDAAndBump(
       programClient.SOLANA_STAKING_PROGRAM_ADDRESS,
@@ -209,7 +222,55 @@ describe("solana-staking", () => {
       instructions: [claimInstruction],
     });
     console.log("Transaction signature", signature);
+    // Verify user stake info
+    const userStakeInfo = await getUserStakeInfo();
+    // @ts-expect-error the 'data' property does actually exist.
+    const firstUserStakeInfo = userStakeInfo[0].data;
+    assert.equal(firstUserStakeInfo.rewardDebt, 0n); // No rewards accumulated in such short time
   });
 
-  it("User can unstake tokens", async () => {});
+  it("User can unstake tokens", async () => {
+    let userStakeInfo = await getUserStakeInfo();
+    // @ts-expect-error the 'data' property does actually exist.
+    const firstUserStakeInfoBefore = userStakeInfo[0].data;
+
+    let globalState = await getGlobalState();
+    // @ts-expect-error the 'data' property does actually exist.
+    const firstGlobalStateBefore = globalState[0].data;
+
+    const unstakeAmount = 40n;
+    const unstakeInstruction = await programClient.getUnstakeInstruction({
+      user: user,
+      state: statePda,
+      userStakeInfo: userStakeInfoPda,
+      userTokenAccount: userStakingToken,
+      stakingVault: stakingVaultPda,
+      rewardVault: rewardVaultPda,
+      tokenProgram: TOKEN_PROGRAM_ADDRESS,
+      amount: unstakeAmount,
+    });
+    const signature = await connection.sendTransactionFromInstructions({
+      feePayer: user,
+      instructions: [unstakeInstruction],
+    });
+    console.log("Transaction signature", signature);
+
+    // Verify user stake info
+    userStakeInfo = await getUserStakeInfo();
+    // @ts-expect-error the 'data' property does actually exist.
+    const firstUserStakeInfoAfter = userStakeInfo[0].data;
+    assert.equal(
+      firstUserStakeInfoAfter.amount,
+      firstUserStakeInfoBefore.amount - unstakeAmount
+    );
+
+    // Verify global state
+    globalState = await getGlobalState();
+    // @ts-expect-error the 'data' property does actually exist.
+    const firstGlobalStateAfter = globalState[0].data;
+    assert.equal(
+      firstGlobalStateAfter.totalStaked,
+      firstGlobalStateBefore.totalStaked - unstakeAmount
+    );
+  });
 });
