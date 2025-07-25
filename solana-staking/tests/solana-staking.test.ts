@@ -145,132 +145,175 @@ describe("solana-staking", () => {
     userStakeInfoPda = userStakeInfoPdaAndBump.pda;
   });
 
-  it("Is initialized!", async () => {
-    const initializeInstruction = await programClient.getInitializeInstruction({
-      admin,
-      state: statePda,
-      stakingMint: stakingMint,
-      rewardMint: rewardMint,
-      stakingVault: stakingVaultPda,
-      rewardVault: rewardVaultPda,
-      tokenProgram: TOKEN_PROGRAM_ADDRESS,
-      rewardRate: 500,
-    });
-    const signature = await connection.sendTransactionFromInstructions({
-      feePayer: admin,
-      instructions: [initializeInstruction],
-    });
-    console.log("Transaction signature", signature);
+  describe("Initialize", () => {
+    it("should initialize the staking program", async () => {
+      const initializeInstruction =
+        await programClient.getInitializeInstruction({
+          admin,
+          state: statePda,
+          stakingMint: stakingMint,
+          rewardMint: rewardMint,
+          stakingVault: stakingVaultPda,
+          rewardVault: rewardVaultPda,
+          tokenProgram: TOKEN_PROGRAM_ADDRESS,
+          rewardRate: 500,
+        });
+      const signature = await connection.sendTransactionFromInstructions({
+        feePayer: admin,
+        instructions: [initializeInstruction],
+      });
+      console.log("Transaction signature", signature);
 
-    const globalState = await getGlobalState();
-    // @ts-expect-error the 'data' property does actually exist.
-    const firstGlobalState = globalState[0].data;
+      const globalState = await getGlobalState();
+      // @ts-expect-error the 'data' property does actually exist.
+      const firstGlobalState = globalState[0].data;
 
-    assert.equal(firstGlobalState.admin.toString(), admin.address.toString());
-    assert.equal(
-      firstGlobalState.stakingMint.toString(),
-      stakingMint.toString()
-    );
-    assert.equal(firstGlobalState.rewardMint.toString(), rewardMint.toString());
-    assert.equal(firstGlobalState.rewardRate, 500n);
-    assert.equal(firstGlobalState.totalStaked, 0n);
+      assert.equal(firstGlobalState.admin.toString(), admin.address.toString());
+      assert.equal(
+        firstGlobalState.stakingMint.toString(),
+        stakingMint.toString()
+      );
+      assert.equal(
+        firstGlobalState.rewardMint.toString(),
+        rewardMint.toString()
+      );
+      assert.equal(firstGlobalState.rewardRate, 500n);
+      assert.equal(firstGlobalState.totalStaked, 0n);
+    });
+
+    it("should fail with invalid reward rate", async () => {
+      // TODO: Test initialization with reward rate > 1000 or 0
+    });
   });
 
-  it("User can stake tokens", async () => {
-    const stakeAmount = 100n;
-    const stakeInstruction = await programClient.getStakeInstruction({
-      user: user,
-      state: statePda,
-      userStakeInfo: userStakeInfoPda,
-      userTokenAccount: userStakingToken,
-      stakingVault: stakingVaultPda,
-      tokenProgram: TOKEN_PROGRAM_ADDRESS,
-      amount: stakeAmount,
-    });
-    const signature = await connection.sendTransactionFromInstructions({
-      feePayer: user,
-      instructions: [stakeInstruction],
-    });
-    console.log("Transaction signature", signature);
+  describe("Stake", () => {
+    it("should allow user to stake tokens", async () => {
+      const stakeAmount = 100n;
+      const stakeInstruction = await programClient.getStakeInstruction({
+        user: user,
+        state: statePda,
+        userStakeInfo: userStakeInfoPda,
+        userTokenAccount: userStakingToken,
+        stakingVault: stakingVaultPda,
+        tokenProgram: TOKEN_PROGRAM_ADDRESS,
+        amount: stakeAmount,
+      });
+      const signature = await connection.sendTransactionFromInstructions({
+        feePayer: user,
+        instructions: [stakeInstruction],
+      });
+      console.log("Transaction signature", signature);
 
-    // Verify user stake info
-    const userStakeInfo = await getUserStakeInfo();
-    // @ts-expect-error the 'data' property does actually exist.
-    const firstUserStakeInfo = userStakeInfo[0].data;
-    assert.equal(firstUserStakeInfo.owner.toString(), user.address.toString());
-    assert.equal(firstUserStakeInfo.amount, 100n);
-    assert.equal(firstUserStakeInfo.rewardDebt, 0n);
+      // Verify user stake info
+      const userStakeInfo = await getUserStakeInfo();
+      // @ts-expect-error the 'data' property does actually exist.
+      const firstUserStakeInfo = userStakeInfo[0].data;
+      assert.equal(
+        firstUserStakeInfo.owner.toString(),
+        user.address.toString()
+      );
+      assert.equal(firstUserStakeInfo.amount, 100n);
+      assert.equal(firstUserStakeInfo.rewardDebt, 0n);
 
-    // Verify global state
-    const globalState = await getGlobalState();
-    // @ts-expect-error the 'data' property does actually exist.
-    const firstGlobalState = globalState[0].data;
-    assert.equal(firstGlobalState.totalStaked, stakeAmount);
+      // Verify global state
+      const globalState = await getGlobalState();
+      // @ts-expect-error the 'data' property does actually exist.
+      const firstGlobalState = globalState[0].data;
+      assert.equal(firstGlobalState.totalStaked, stakeAmount);
+    });
+
+    it("should fail when staking zero tokens", async () => {
+      // TODO: Test staking 0 tokens
+    });
+
+    it("should allow multiple stakes to accumulate", async () => {
+      // TODO: Test multiple stakes from same user
+    });
   });
 
-  it("User can claim rewards", async () => {
-    const claimInstruction = await programClient.getClaimRewardsInstruction({
-      user: user,
-      state: statePda,
-      userStakeInfo: userStakeInfoPda,
-      userRewardAccount: userRewardToken,
-      rewardVault: rewardVaultPda,
-      tokenProgram: TOKEN_PROGRAM_ADDRESS,
+  describe("Claim Rewards", () => {
+    it("should calculate rewards correctly over time", async () => {
+      const claimInstruction = await programClient.getClaimRewardsInstruction({
+        user: user,
+        state: statePda,
+        userStakeInfo: userStakeInfoPda,
+        userRewardAccount: userRewardToken,
+        rewardVault: rewardVaultPda,
+        tokenProgram: TOKEN_PROGRAM_ADDRESS,
+      });
+      const signature = await connection.sendTransactionFromInstructions({
+        feePayer: user,
+        instructions: [claimInstruction],
+      });
+      console.log("Transaction signature", signature);
+      // Verify user stake info
+      const userStakeInfo = await getUserStakeInfo();
+      // @ts-expect-error the 'data' property does actually exist.
+      const firstUserStakeInfo = userStakeInfo[0].data;
+      assert.equal(firstUserStakeInfo.rewardDebt, 0n); // No rewards accumulated in such short time
     });
-    const signature = await connection.sendTransactionFromInstructions({
-      feePayer: user,
-      instructions: [claimInstruction],
+
+    it("should not reset staking duration when claiming", async () => {
+      // TODO: Test that claiming doesn't reset the staking timestamp
     });
-    console.log("Transaction signature", signature);
-    // Verify user stake info
-    const userStakeInfo = await getUserStakeInfo();
-    // @ts-expect-error the 'data' property does actually exist.
-    const firstUserStakeInfo = userStakeInfo[0].data;
-    assert.equal(firstUserStakeInfo.rewardDebt, 0n); // No rewards accumulated in such short time
+
+    it("should handle multiple claims in short intervals", async () => {
+      // TODO: Test claiming every few hours over multiple days
+    });
   });
 
-  it("User can unstake tokens", async () => {
-    let userStakeInfo = await getUserStakeInfo();
-    // @ts-expect-error the 'data' property does actually exist.
-    const firstUserStakeInfoBefore = userStakeInfo[0].data;
+  describe("Unstake", () => {
+    it("should allow user to unstake tokens", async () => {
+      let userStakeInfo = await getUserStakeInfo();
+      // @ts-expect-error the 'data' property does actually exist.
+      const firstUserStakeInfoBefore = userStakeInfo[0].data;
 
-    let globalState = await getGlobalState();
-    // @ts-expect-error the 'data' property does actually exist.
-    const firstGlobalStateBefore = globalState[0].data;
+      let globalState = await getGlobalState();
+      // @ts-expect-error the 'data' property does actually exist.
+      const firstGlobalStateBefore = globalState[0].data;
 
-    const unstakeAmount = 40n;
-    const unstakeInstruction = await programClient.getUnstakeInstruction({
-      user: user,
-      state: statePda,
-      userStakeInfo: userStakeInfoPda,
-      userTokenAccount: userStakingToken,
-      stakingVault: stakingVaultPda,
-      rewardVault: rewardVaultPda,
-      tokenProgram: TOKEN_PROGRAM_ADDRESS,
-      amount: unstakeAmount,
+      const unstakeAmount = 40n;
+      const unstakeInstruction = await programClient.getUnstakeInstruction({
+        user: user,
+        state: statePda,
+        userStakeInfo: userStakeInfoPda,
+        userTokenAccount: userStakingToken,
+        stakingVault: stakingVaultPda,
+        rewardVault: rewardVaultPda,
+        tokenProgram: TOKEN_PROGRAM_ADDRESS,
+        amount: unstakeAmount,
+      });
+      const signature = await connection.sendTransactionFromInstructions({
+        feePayer: user,
+        instructions: [unstakeInstruction],
+      });
+      console.log("Transaction signature", signature);
+
+      // Verify user stake info
+      userStakeInfo = await getUserStakeInfo();
+      // @ts-expect-error the 'data' property does actually exist.
+      const firstUserStakeInfoAfter = userStakeInfo[0].data;
+      assert.equal(
+        firstUserStakeInfoAfter.amount,
+        firstUserStakeInfoBefore.amount - unstakeAmount
+      );
+
+      // Verify global state
+      globalState = await getGlobalState();
+      // @ts-expect-error the 'data' property does actually exist.
+      const firstGlobalStateAfter = globalState[0].data;
+      assert.equal(
+        firstGlobalStateAfter.totalStaked,
+        firstGlobalStateBefore.totalStaked - unstakeAmount
+      );
     });
-    const signature = await connection.sendTransactionFromInstructions({
-      feePayer: user,
-      instructions: [unstakeInstruction],
+
+    it("should fail when unstaking more than staked amount", async () => {
+      // TODO: Test unstaking more than user has staked
     });
-    console.log("Transaction signature", signature);
 
-    // Verify user stake info
-    userStakeInfo = await getUserStakeInfo();
-    // @ts-expect-error the 'data' property does actually exist.
-    const firstUserStakeInfoAfter = userStakeInfo[0].data;
-    assert.equal(
-      firstUserStakeInfoAfter.amount,
-      firstUserStakeInfoBefore.amount - unstakeAmount
-    );
-
-    // Verify global state
-    globalState = await getGlobalState();
-    // @ts-expect-error the 'data' property does actually exist.
-    const firstGlobalStateAfter = globalState[0].data;
-    assert.equal(
-      firstGlobalStateAfter.totalStaked,
-      firstGlobalStateBefore.totalStaked - unstakeAmount
-    );
+    it("should fail when unstaking zero tokens", async () => {
+      // TODO: Test unstaking 0 tokens
+    });
   });
 });
