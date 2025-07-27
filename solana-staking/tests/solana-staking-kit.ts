@@ -20,17 +20,11 @@ import {
   createTokenWithAmount,
 } from "./_setup";
 
-export const log = console.log;
-export const stringify = (object: any) => {
-  const bigIntReplacer = (key: string, value: any) =>
-    typeof value === "bigint" ? value.toString() : value;
-  return JSON.stringify(object, bigIntReplacer, 2);
-};
-
 describe("solana-staking", () => {
   let admin: KeyPairSigner;
   let user: KeyPairSigner;
   let connection: Connection;
+  let client: ReturnType<typeof createDefaultSolanaClient>;
   let getGlobalState: () => Promise<
     Array<MaybeAccount<programClient.GlobalState, string>>
   >;
@@ -67,7 +61,7 @@ describe("solana-staking", () => {
       getUserStakeInfoDecoder()
     );
 
-    const client = createDefaultSolanaClient();
+    client = createDefaultSolanaClient();
     // Create staking token mint
     [stakingMint, rewardMint] = await Promise.all([
       createMint(client, admin, admin.address, 9),
