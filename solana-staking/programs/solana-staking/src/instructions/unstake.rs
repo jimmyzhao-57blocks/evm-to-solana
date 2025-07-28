@@ -44,6 +44,13 @@ pub struct Unstake<'info> {
     )]
     pub reward_vault: Account<'info, TokenAccount>,
     
+    #[account(
+        mut,
+        token::mint = state.reward_mint,
+        token::authority = user
+    )]
+    pub user_reward_account: Account<'info, TokenAccount>,
+    
     pub token_program: Program<'info, Token>,
     pub clock: Sysvar<'info, Clock>,
 }
@@ -57,10 +64,16 @@ pub fn unstake_handler(ctx: Context<Unstake>, amount: u64) -> Result<()> {
     
     require!(user_stake.amount >= amount, StakingError::InsufficientStakedAmount);
     
-    // Calculate and transfer rewards
+    // Calculate and transfer rewards from last claim time (or stake time if never claimed)
+    let last_claim = if user_stake.last_claim_time > 0 {
+        user_stake.last_claim_time
+    } else {
+        user_stake.stake_timestamp
+    };
+    
     let rewards = calculate_rewards(
         user_stake.amount,
-        user_stake.stake_timestamp,
+        last_claim,
         clock.unix_timestamp,
         state.reward_rate
     )?;
@@ -71,7 +84,7 @@ pub fn unstake_handler(ctx: Context<Unstake>, amount: u64) -> Result<()> {
         
         let cpi_accounts = Transfer {
             from: ctx.accounts.reward_vault.to_account_info(),
-            to: ctx.accounts.user_token_account.to_account_info(),
+            to: ctx.accounts.user_reward_account.to_account_info(),
             authority: state.to_account_info(),
         };
         let cpi_program = ctx.accounts.token_program.to_account_info();
@@ -98,7 +111,9 @@ pub fn unstake_handler(ctx: Context<Unstake>, amount: u64) -> Result<()> {
     // Update user stake info
     user_stake.amount = user_stake.amount.checked_sub(amount)
         .ok_or(StakingError::ArithmeticOverflow)?;
-    user_stake.stake_timestamp = clock.unix_timestamp;
+    // Update last claim time since rewards were just claimed
+    user_stake.last_claim_time = clock.unix_timestamp;
+    // Note: stake_timestamp remains unchanged
     
     // Update global state
     state.total_staked = state.total_staked.checked_sub(amount)

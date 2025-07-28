@@ -6,7 +6,6 @@ import {
   createMint,
   createAccount,
   mintTo,
-  getAccount,
 } from "@solana/spl-token";
 import { assert } from "chai";
 import { SolanaStaking } from "../target/types/solana_staking";

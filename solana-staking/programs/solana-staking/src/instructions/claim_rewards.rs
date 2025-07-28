@@ -44,9 +44,17 @@ pub fn claim_rewards_handler(ctx: Context<ClaimRewards>) -> Result<()> {
     let user_stake = &mut ctx.accounts.user_stake_info;
     let clock = &ctx.accounts.clock;
     
+    // Calculate rewards from last claim time (or stake time if never claimed)
+    // For backward compatibility, if last_claim_time is 0, use stake_timestamp
+    let last_claim = if user_stake.last_claim_time != 0 {
+        user_stake.last_claim_time
+    } else {
+        user_stake.stake_timestamp
+    };
+    
     let rewards = calculate_rewards(
         user_stake.amount,
-        user_stake.stake_timestamp,
+        last_claim,
         clock.unix_timestamp,
         state.reward_rate
     )?;
@@ -66,7 +74,8 @@ pub fn claim_rewards_handler(ctx: Context<ClaimRewards>) -> Result<()> {
         
         user_stake.reward_debt = user_stake.reward_debt.checked_add(rewards)
             .ok_or(crate::errors::StakingError::ArithmeticOverflow)?;
-        user_stake.stake_timestamp = clock.unix_timestamp;
+        // Update last claim time instead of stake timestamp
+        user_stake.last_claim_time = clock.unix_timestamp;
         
         msg!("User {} claimed {} rewards", ctx.accounts.user.key(), rewards);
     } else {

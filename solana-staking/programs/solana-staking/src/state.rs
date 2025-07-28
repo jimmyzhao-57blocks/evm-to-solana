@@ -19,6 +19,7 @@ pub struct UserStakeInfo {
     pub owner: Pubkey,
     pub amount: u64,
     pub stake_timestamp: i64,
+    pub last_claim_time: i64,
     pub reward_debt: u64,
     pub bump: u8,
 }
