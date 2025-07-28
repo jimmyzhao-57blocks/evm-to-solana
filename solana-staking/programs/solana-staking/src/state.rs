@@ -8,7 +8,7 @@ pub struct GlobalState {
     pub reward_mint: Pubkey,
     pub staking_vault: Pubkey,
     pub reward_vault: Pubkey,
-    pub reward_rate: u64,        // Basis points (100 = 1%)
+    pub reward_rate: u64, // Basis points (100 = 1%)
     pub total_staked: u64,
     pub bump: u8,
 }

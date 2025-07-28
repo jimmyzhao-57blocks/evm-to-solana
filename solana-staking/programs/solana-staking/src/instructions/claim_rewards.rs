@@ -1,40 +1,41 @@
-use anchor_lang::prelude::*;
-use anchor_spl::token::{self, Token, TokenAccount, Transfer};
+use crate::events::RewardsClaimed;
+use crate::instructions::utils::claim_pending_rewards;
 use crate::state::{GlobalState, UserStakeInfo};
-use crate::instructions::stake::calculate_rewards;
+use anchor_lang::prelude::*;
+use anchor_spl::token::{Token, TokenAccount};
 
 #[derive(Accounts)]
 pub struct ClaimRewards<'info> {
     #[account(mut)]
     pub user: Signer<'info>,
-    
+
     #[account(
         seeds = [b"state"],
         bump = state.bump
     )]
     pub state: Account<'info, GlobalState>,
-    
+
     #[account(
         mut,
         seeds = [b"stake", user.key().as_ref()],
         bump = user_stake_info.bump
     )]
     pub user_stake_info: Account<'info, UserStakeInfo>,
-    
+
     #[account(
         mut,
         token::mint = state.reward_mint,
         token::authority = user
     )]
     pub user_reward_account: Account<'info, TokenAccount>,
-    
+
     #[account(
         mut,
         seeds = [b"reward_vault", state.key().as_ref()],
         bump
     )]
     pub reward_vault: Account<'info, TokenAccount>,
-    
+
     pub token_program: Program<'info, Token>,
     pub clock: Sysvar<'info, Clock>,
 }
@@ -43,44 +44,32 @@ pub fn claim_rewards_handler(ctx: Context<ClaimRewards>) -> Result<()> {
     let state = &ctx.accounts.state;
     let user_stake = &mut ctx.accounts.user_stake_info;
     let clock = &ctx.accounts.clock;
-    
-    // Calculate rewards from last claim time (or stake time if never claimed)
-    // For backward compatibility, if last_claim_time is 0, use stake_timestamp
-    let last_claim = if user_stake.last_claim_time != 0 {
-        user_stake.last_claim_time
-    } else {
-        user_stake.stake_timestamp
-    };
-    
-    let rewards = calculate_rewards(
-        user_stake.amount,
-        last_claim,
-        clock.unix_timestamp,
-        state.reward_rate
+
+    let rewards = claim_pending_rewards(
+        state,
+        user_stake,
+        &ctx.accounts.reward_vault,
+        &ctx.accounts.user_reward_account,
+        &ctx.accounts.token_program,
+        clock,
     )?;
-    
+
     if rewards > 0 {
-        let seeds = &[b"state".as_ref(), &[state.bump]];
-        let signer = &[&seeds[..]];
+        msg!(
+            "User {} claimed {} rewards",
+            ctx.accounts.user.key(),
+            rewards
+        );
         
-        let cpi_accounts = Transfer {
-            from: ctx.accounts.reward_vault.to_account_info(),
-            to: ctx.accounts.user_reward_account.to_account_info(),
-            authority: state.to_account_info(),
-        };
-        let cpi_program = ctx.accounts.token_program.to_account_info();
-        let cpi_ctx = CpiContext::new_with_signer(cpi_program, cpi_accounts, signer);
-        token::transfer(cpi_ctx, rewards)?;
-        
-        user_stake.reward_debt = user_stake.reward_debt.checked_add(rewards)
-            .ok_or(crate::errors::StakingError::ArithmeticOverflow)?;
-        // Update last claim time instead of stake timestamp
-        user_stake.last_claim_time = clock.unix_timestamp;
-        
-        msg!("User {} claimed {} rewards", ctx.accounts.user.key(), rewards);
+        // Emit rewards claimed event
+        emit!(RewardsClaimed {
+            user: ctx.accounts.user.key(),
+            amount: rewards,
+            timestamp: clock.unix_timestamp,
+        });
     } else {
         msg!("No rewards to claim");
     }
-    
+
     Ok(())
 }

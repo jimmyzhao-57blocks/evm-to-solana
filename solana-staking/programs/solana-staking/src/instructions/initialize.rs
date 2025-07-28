@@ -1,3 +1,4 @@
+use crate::events::Initialized;
 use crate::state::GlobalState;
 use anchor_lang::prelude::*;
 use anchor_spl::token::{Mint, Token, TokenAccount};
@@ -41,6 +42,7 @@ pub struct Initialize<'info> {
 
     pub system_program: Program<'info, System>,
     pub token_program: Program<'info, Token>,
+    pub clock: Sysvar<'info, Clock>,
 }
 
 pub fn initialize_handler(ctx: Context<Initialize>, reward_rate: u64) -> Result<()> {
@@ -64,6 +66,15 @@ pub fn initialize_handler(ctx: Context<Initialize>, reward_rate: u64) -> Result<
         "Staking program initialized with reward rate: {}%",
         reward_rate as f64 / 100.0
     );
+
+    // Emit initialized event
+    emit!(Initialized {
+        authority: ctx.accounts.admin.key(),
+        staking_mint: ctx.accounts.staking_mint.key(),
+        reward_mint: ctx.accounts.reward_mint.key(),
+        reward_rate,
+        timestamp: ctx.accounts.clock.unix_timestamp,
+    });
 
     Ok(())
 }
