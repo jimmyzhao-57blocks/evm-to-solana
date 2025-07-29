@@ -6,7 +6,6 @@ import {
   createMint,
   createAccount,
   mintTo,
-  getAccount,
 } from "@solana/spl-token";
 import { assert } from "chai";
 import { SolanaStaking } from "../target/types/solana_staking";
@@ -112,7 +111,7 @@ describe("solana-staking", () => {
 
     const tx = await program.methods
       .initialize(new anchor.BN(rewardRate))
-      .accounts({
+      .accountsStrict({
         admin: admin.publicKey,
         state: statePda,
         stakingMint: stakingMint,
@@ -140,7 +139,7 @@ describe("solana-staking", () => {
 
     const tx = await program.methods
       .stake(new anchor.BN(stakeAmount))
-      .accounts({
+      .accountsStrict({
         user: user.publicKey,
         userStakeInfo: userInfoPda,
         state: statePda,
@@ -183,7 +182,7 @@ describe("solana-staking", () => {
 
     const tx = await program.methods
       .claimRewards()
-      .accounts({
+      .accountsStrict({
         user: user.publicKey,
         userStakeInfo: userInfoPda,
         state: statePda,
@@ -208,13 +207,15 @@ describe("solana-staking", () => {
 
     const tx = await program.methods
       .unstake(new anchor.BN(unstakeAmount))
-      .accounts({
+      .accountsStrict({
         user: user.publicKey,
         userStakeInfo: userInfoPda,
         state: statePda,
         stakingVault: stakingVaultPda,
+        rewardVault: rewardVaultPda,
         userTokenAccount: userStakingAccount,
         tokenProgram: TOKEN_PROGRAM_ID,
+        clock: anchor.web3.SYSVAR_CLOCK_PUBKEY,
       })
       .signers([user])
       .rpc();
