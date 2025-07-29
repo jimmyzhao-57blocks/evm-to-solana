@@ -457,6 +457,10 @@ describe("solana-staking with LiteSVM (Time Simulation)", () => {
       const rewardVaultBalance = getAccount(provider, rewardVaultPda);
       expect(Number(rewardVaultBalance.amount)).to.equal(Number(toToken(5000)));
     });
+
+    it("should fail with invalid reward rate", async () => {
+      // TODO: Test initialization with reward rate > 1000 or 0
+    });
   });
 
   describe("Stake", () => {
@@ -504,6 +508,14 @@ describe("solana-staking with LiteSVM (Time Simulation)", () => {
       const globalState = getGlobalState(provider, statePda);
       assert.equal(globalState!.totalStaked.toString(), stakeAmount.toString());
     });
+
+    it("should fail when staking zero tokens", async () => {
+      // TODO: Test staking 0 tokens
+    });
+
+    it("should allow multiple stakes to accumulate", async () => {
+      // TODO: Test multiple stakes from same user
+    });
   });
 
   describe("Claim Rewards with Time Manipulation", () => {
@@ -512,7 +524,7 @@ describe("solana-staking with LiteSVM (Time Simulation)", () => {
       const stakeInfo = getUserStakeInfo(provider, userStakeInfoPda);
       const stakeTime = Number(stakeInfo!.stakeTimestamp.toString());
       console.log("Stake timestamp:", stakeTime);
-      
+
       // Get initial reward balance
       const initialRewardAccount = getAccount(provider, userRewardToken);
       const initialBalance = Number(initialRewardAccount.amount);
@@ -555,21 +567,21 @@ describe("solana-staking with LiteSVM (Time Simulation)", () => {
       console.log(`Expected rewards: ${expectedRewards}`);
 
       expect(rewardsReceived).to.equal(expectedRewards);
-      
+
       // Verify lastClaimTime was updated
       const updatedStakeInfo = getUserStakeInfo(provider, userStakeInfoPda);
-      console.log("Updated lastClaimTime:", updatedStakeInfo!.lastClaimTime?.toString());
+      console.log(
+        "Updated lastClaimTime:",
+        updatedStakeInfo!.lastClaimTime?.toString()
+      );
     });
 
-    it.skip("should generate rewards for partial days", async () => {
-      // Skip reason: This test fails because it runs after the previous claim test
-      // where lastClaimTime was already updated to the current time.
-      // The Fresh Account Test demonstrates that partial day rewards work correctly.
+    it("should not reset staking duration when claiming", async () => {
+      // TODO: Test that claiming doesn't reset the staking timestamp
     });
 
-    it.skip("should handle multiple claims over different time periods", async () => {
-      // Skip reason: This test fails due to timing dependencies with previous tests.
-      // The Fresh Account Test and manual testing confirm that multiple claims work correctly.
+    it("should handle multiple claims in short intervals", async () => {
+      // TODO: Test claiming every few hours over multiple days
     });
   });
 
@@ -684,25 +696,23 @@ describe("solana-staking with LiteSVM (Time Simulation)", () => {
         "Stake amount should remain unchanged"
       );
     });
-  });
 
-  // Helper function to advance time by days (following huma pattern)
-  function advanceTimeByDays(days: number): void {
-    const currentTS = currentTimestamp();
-    const newTS = currentTS + days * SECONDS_IN_A_DAY;
-    setNextBlockTimestamp(newTS);
-    console.log(`Time advanced by ${days} days`);
-  }
+    it("should fail when unstaking zero tokens", async () => {
+      // TODO: Test unstaking 0 tokens
+    });
+  });
 
   describe("Fresh Account Test", () => {
     it("should work with a new user account", async () => {
       // Create a new user for clean testing
       const newUser = Keypair.generate();
-      const newUserSigner = await createKeyPairSignerFromBytes(newUser.secretKey);
-      
+      const newUserSigner = await createKeyPairSignerFromBytes(
+        newUser.secretKey
+      );
+
       // Airdrop SOL to new user
       svm.airdrop(newUser.publicKey, BigInt(10 * LAMPORTS_PER_SOL));
-      
+
       // Create token accounts for new user
       const newUserStakingToken = createAssociatedTokenAccount(
         provider,
@@ -710,14 +720,14 @@ describe("solana-staking with LiteSVM (Time Simulation)", () => {
         stakingMint,
         newUser.publicKey
       );
-      
+
       const newUserRewardToken = createAssociatedTokenAccount(
         provider,
         admin,
         rewardMint,
         newUser.publicKey
       );
-      
+
       // Mint tokens to new user
       mintTo(
         provider,
@@ -727,13 +737,13 @@ describe("solana-staking with LiteSVM (Time Simulation)", () => {
         admin,
         toToken(100)
       );
-      
+
       // Derive PDA for new user
       const [newUserStakeInfoPda] = PublicKey.findProgramAddressSync(
         [Buffer.from("stake"), newUser.publicKey.toBuffer()],
         programId
       );
-      
+
       // Stake tokens
       const stakeInstruction = programClient.getStakeInstruction({
         user: newUserSigner,
@@ -746,27 +756,27 @@ describe("solana-staking with LiteSVM (Time Simulation)", () => {
         tokenProgram: address(TOKEN_PROGRAM_ID.toBase58()),
         amount: toToken(100),
       });
-      
+
       const ix = toTransactionInstruction(stakeInstruction);
       const tx = new Transaction().add(ix);
       tx.recentBlockhash = provider.client.latestBlockhash();
       tx.sign(newUser);
       provider.client.sendTransaction(tx);
-      
+
       // Get stake info
       const stakeInfo = getUserStakeInfo(provider, newUserStakeInfoPda);
       console.log("New user stake info:", {
         amount: stakeInfo!.amount.toString(),
         stakeTimestamp: stakeInfo!.stakeTimestamp.toString(),
         lastClaimTime: stakeInfo!.lastClaimTime?.toString(),
-        rewardDebt: stakeInfo!.rewardDebt.toString()
+        rewardDebt: stakeInfo!.rewardDebt.toString(),
       });
-      
+
       // Advance time by 12 hours
       const currentTime = currentTimestamp();
       const twelveHoursLater = currentTime + 12 * 3600;
       setNextBlockTimestamp(twelveHoursLater);
-      
+
       // Claim rewards
       const claimInstruction = programClient.getClaimRewardsInstruction({
         user: newUserSigner,
@@ -776,18 +786,18 @@ describe("solana-staking with LiteSVM (Time Simulation)", () => {
         rewardVault: address(rewardVaultPda.toBase58()),
         tokenProgram: address(TOKEN_PROGRAM_ID.toBase58()),
       });
-      
+
       const claimIx = toTransactionInstruction(claimInstruction);
       const claimTx = new Transaction().add(claimIx);
       claimTx.recentBlockhash = provider.client.latestBlockhash();
       claimTx.sign(newUser);
       provider.client.sendTransaction(claimTx);
-      
+
       // Check rewards
       const rewardBalance = getAccount(provider, newUserRewardToken);
       const rewards = Number(rewardBalance.amount);
       console.log("Rewards after 12 hours:", rewards);
-      
+
       // Should be 2.5 tokens = 2,500,000,000 lamports
       expect(rewards).to.equal(2_500_000_000);
     });
@@ -798,8 +808,8 @@ describe("solana-staking with LiteSVM (Time Simulation)", () => {
       // Test reward calculation precision with different time periods
       // For 100 tokens staked at 5% rate (500 basis points)
       const testCases = [
-        { hours: 1, expectedLamports: 208_333_333 },    // ~0.208 tokens
-        { hours: 6, expectedLamports: 1_250_000_000 },  // 1.25 tokens
+        { hours: 1, expectedLamports: 208_333_333 }, // ~0.208 tokens
+        { hours: 6, expectedLamports: 1_250_000_000 }, // 1.25 tokens
         { hours: 18, expectedLamports: 3_750_000_000 }, // 3.75 tokens
         { hours: 36, expectedLamports: 7_500_000_000 }, // 7.5 tokens
         { hours: 60, expectedLamports: 12_500_000_000 }, // 12.5 tokens
@@ -808,7 +818,10 @@ describe("solana-staking with LiteSVM (Time Simulation)", () => {
       for (const testCase of testCases) {
         // Get current state
         const beforeStakeInfo = getUserStakeInfo(provider, userStakeInfoPda);
-        const lastClaim = Number(beforeStakeInfo!.lastClaimTime?.toString() || beforeStakeInfo!.stakeTimestamp.toString());
+        const lastClaim = Number(
+          beforeStakeInfo!.lastClaimTime?.toString() ||
+            beforeStakeInfo!.stakeTimestamp.toString()
+        );
         const beforeBalance = getAccount(provider, userRewardToken);
         const startBalance = Number(beforeBalance.amount);
 
@@ -840,7 +853,7 @@ describe("solana-staking with LiteSVM (Time Simulation)", () => {
 
         console.log(`Expected: ${expectedRewards} lamports`);
         console.log(`Actual: ${actualRewards} lamports`);
-        
+
         // Since we have integer division, actual rewards might be slightly less
         // For example: 208333333.33... becomes 208333333
         expect(actualRewards).to.be.closeTo(expectedRewards, 1); // Allow 1 lamport difference
