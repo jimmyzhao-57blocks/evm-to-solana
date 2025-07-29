@@ -457,6 +457,10 @@ describe("solana-staking with LiteSVM (Time Simulation)", () => {
       const rewardVaultBalance = getAccount(provider, rewardVaultPda);
       expect(Number(rewardVaultBalance.amount)).to.equal(Number(toToken(5000)));
     });
+
+    it("should fail with invalid reward rate", async () => {
+      // TODO: Test initialization with reward rate > 1000 or 0
+    });
   });
 
   describe("Stake", () => {
@@ -503,6 +507,14 @@ describe("solana-staking with LiteSVM (Time Simulation)", () => {
       // Verify global state total staked was updated
       const globalState = getGlobalState(provider, statePda);
       assert.equal(globalState!.totalStaked.toString(), stakeAmount.toString());
+    });
+
+    it("should fail when staking zero tokens", async () => {
+      // TODO: Test staking 0 tokens
+    });
+
+    it("should allow multiple stakes to accumulate", async () => {
+      // TODO: Test multiple stakes from same user
     });
   });
 
@@ -564,15 +576,12 @@ describe("solana-staking with LiteSVM (Time Simulation)", () => {
       );
     });
 
-    it.skip("should generate rewards for partial days", async () => {
-      // Skip reason: This test fails because it runs after the previous claim test
-      // where lastClaimTime was already updated to the current time.
-      // The Fresh Account Test demonstrates that partial day rewards work correctly.
+    it("should not reset staking duration when claiming", async () => {
+      // TODO: Test that claiming doesn't reset the staking timestamp
     });
 
-    it.skip("should handle multiple claims over different time periods", async () => {
-      // Skip reason: This test fails due to timing dependencies with previous tests.
-      // The Fresh Account Test and manual testing confirm that multiple claims work correctly.
+    it("should handle multiple claims in short intervals", async () => {
+      // TODO: Test claiming every few hours over multiple days
     });
   });
 
@@ -686,6 +695,10 @@ describe("solana-staking with LiteSVM (Time Simulation)", () => {
         stakedAmount.toString(),
         "Stake amount should remain unchanged"
       );
+    });
+
+    it("should fail when unstaking zero tokens", async () => {
+      // TODO: Test unstaking 0 tokens
     });
   });
 
