@@ -4,6 +4,7 @@ pragma solidity ^0.8.20;
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
+import "./RestrictedStakingToken.sol";
 
 contract Staking is ReentrancyGuard, Ownable {
     IERC20 public stakingToken;
@@ -35,6 +36,10 @@ contract Staking is ReentrancyGuard, Ownable {
 
     function stake(uint256 amount) external nonReentrant {
         require(amount > 0, "Cannot stake 0");
+        
+        // Check if user is blacklisted
+        RestrictedStakingToken restrictedToken = RestrictedStakingToken(address(stakingToken));
+        require(!restrictedToken.isBlacklisted(msg.sender), "Address is blacklisted");
 
         // Calculate and claim any pending rewards first
         if (stakes[msg.sender].amount > 0) {
@@ -62,6 +67,10 @@ contract Staking is ReentrancyGuard, Ownable {
             stakes[msg.sender].amount >= amount,
             "Insufficient staked amount"
         );
+        
+        // Check if user is blacklisted
+        RestrictedStakingToken restrictedToken = RestrictedStakingToken(address(stakingToken));
+        require(!restrictedToken.isBlacklisted(msg.sender), "Address is blacklisted");
 
         // Calculate and claim any pending rewards first
         _claimRewards();
