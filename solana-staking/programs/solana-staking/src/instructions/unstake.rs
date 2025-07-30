@@ -1,7 +1,7 @@
 use crate::errors::StakingError;
 use crate::events::Unstaked;
 use crate::instructions::utils::claim_pending_rewards;
-use crate::state::{GlobalState, UserStakeInfo};
+use crate::state::{BlacklistEntry, GlobalState, UserStakeInfo};
 use anchor_lang::prelude::*;
 use anchor_spl::token::{self, Token, TokenAccount, Transfer};
 
@@ -52,12 +52,23 @@ pub struct Unstake<'info> {
     )]
     pub user_reward_account: Account<'info, TokenAccount>,
 
+    #[account(
+        seeds = [b"blacklist", user.key().as_ref()],
+        bump,
+    )]
+    pub blacklist_entry: Option<Account<'info, BlacklistEntry>>,
+
     pub token_program: Program<'info, Token>,
     pub clock: Sysvar<'info, Clock>,
 }
 
 pub fn unstake_handler(ctx: Context<Unstake>, amount: u64) -> Result<()> {
     require!(amount > 0, StakingError::InvalidUnstakeAmount);
+
+    require!(
+        ctx.accounts.blacklist_entry.is_none(),
+        StakingError::AddressBlacklisted
+    );
 
     let state = &mut ctx.accounts.state;
     let user_stake = &mut ctx.accounts.user_stake_info;

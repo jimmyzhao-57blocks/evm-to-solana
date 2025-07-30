@@ -30,3 +30,17 @@ pub struct Initialized {
     pub reward_rate: u64,
     pub timestamp: i64,
 }
+
+#[event]
+pub struct AddedToBlacklist {
+    pub address: Pubkey,
+    pub admin: Pubkey,
+    pub timestamp: i64,
+}
+
+#[event]
+pub struct RemovedFromBlacklist {
+    pub address: Pubkey,
+    pub admin: Pubkey,
+    pub timestamp: i64,
+}

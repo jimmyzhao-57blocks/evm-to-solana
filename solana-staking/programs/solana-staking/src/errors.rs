@@ -16,4 +16,16 @@ pub enum StakingError {
 
     #[msg("Arithmetic overflow")]
     ArithmeticOverflow,
+
+    #[msg("Address is blacklisted")]
+    AddressBlacklisted,
+
+    #[msg("Address not found in blacklist")]
+    AddressNotBlacklisted,
+
+    #[msg("Cannot blacklist zero address")]
+    CannotBlacklistZeroAddress,
+
+    #[msg("Address is already in blacklist")]
+    AddressAlreadyBlacklisted,
 }

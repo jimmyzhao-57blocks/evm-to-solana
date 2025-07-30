@@ -1,7 +1,7 @@
 use crate::errors::StakingError;
 use crate::events::Staked;
 use crate::instructions::utils::claim_pending_rewards;
-use crate::state::{GlobalState, UserStakeInfo};
+use crate::state::{BlacklistEntry, GlobalState, UserStakeInfo};
 use anchor_lang::prelude::*;
 use anchor_spl::token::{self, Token, TokenAccount, Transfer};
 
@@ -54,6 +54,12 @@ pub struct Stake<'info> {
     )]
     pub user_reward_account: Account<'info, TokenAccount>,
 
+    #[account(
+        seeds = [b"blacklist", user.key().as_ref()],
+        bump,
+    )]
+    pub blacklist_entry: Option<Account<'info, BlacklistEntry>>,
+
     pub token_program: Program<'info, Token>,
     pub system_program: Program<'info, System>,
     pub clock: Sysvar<'info, Clock>,
@@ -61,6 +67,11 @@ pub struct Stake<'info> {
 
 pub fn stake_handler(ctx: Context<Stake>, amount: u64) -> Result<()> {
     require!(amount > 0, StakingError::InvalidStakeAmount);
+
+    require!(
+        ctx.accounts.blacklist_entry.is_none(),
+        StakingError::AddressBlacklisted
+    );
 
     let state = &mut ctx.accounts.state;
     let user_stake = &mut ctx.accounts.user_stake_info;

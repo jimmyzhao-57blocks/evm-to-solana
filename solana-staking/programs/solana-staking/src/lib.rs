@@ -28,4 +28,12 @@ pub mod solana_staking {
     pub fn claim_rewards(ctx: Context<ClaimRewards>) -> Result<()> {
         instructions::claim_rewards::claim_rewards_handler(ctx)
     }
+
+    pub fn add_to_blacklist(ctx: Context<AddToBlacklist>, address: Pubkey) -> Result<()> {
+        instructions::add_to_blacklist::add_to_blacklist_handler(ctx, address)
+    }
+
+    pub fn remove_from_blacklist(ctx: Context<RemoveFromBlacklist>, address: Pubkey) -> Result<()> {
+        instructions::remove_from_blacklist::remove_from_blacklist_handler(ctx, address)
+    }
 }

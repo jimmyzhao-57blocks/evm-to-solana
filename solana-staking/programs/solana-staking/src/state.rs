@@ -23,3 +23,11 @@ pub struct UserStakeInfo {
     pub reward_debt: u64,
     pub bump: u8,
 }
+
+#[account]
+#[derive(InitSpace)]
+pub struct BlacklistEntry {
+    pub address: Pubkey,
+    pub added_at: i64,
+    pub bump: u8,
+}
