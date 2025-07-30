@@ -94,6 +94,28 @@ contract RestrictedStakingTest is Test {
         vm.expectRevert("Address is blacklisted");
         staking.unstake(stakeAmount);
     }
+    
+    function testCannotClaimRewardsWhenBlacklisted() public {
+        uint256 stakeAmount = 1000 * 10 ** 18;
+
+        // First stake as normal user
+        vm.startPrank(user1);
+        myToken.approve(address(staking), stakeAmount);
+        staking.stake(stakeAmount);
+        vm.stopPrank();
+
+        // Fast forward to generate rewards
+        vm.warp(block.timestamp + 1 days);
+
+        // Then blacklist the user
+        vm.prank(owner);
+        myToken.addToBlacklist(user1);
+
+        // Try to claim rewards
+        vm.prank(user1);
+        vm.expectRevert("Address is blacklisted");
+        staking.claimRewards();
+    }
 
     function testCannotTransferWhenBlacklisted() public {
         // Blacklist user1

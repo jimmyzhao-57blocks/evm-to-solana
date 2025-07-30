@@ -60,8 +60,7 @@ contract RestrictedStakingToken is ERC20, AccessControl, Ownable {
     function addToBlacklistBatch(address[] calldata accounts) external onlyRole(BLACKLIST_ADMIN_ROLE) {
         for (uint256 i = 0; i < accounts.length; i++) {
             if (accounts[i] != address(0) && !_blacklist[accounts[i]]) {
-                _blacklist[accounts[i]] = true;
-                emit AddedToBlacklist(accounts[i]);
+                addToBlacklist(accounts[i]);
             }
         }
     }
@@ -72,8 +71,7 @@ contract RestrictedStakingToken is ERC20, AccessControl, Ownable {
     function removeFromBlacklistBatch(address[] calldata accounts) external onlyRole(BLACKLIST_ADMIN_ROLE) {
         for (uint256 i = 0; i < accounts.length; i++) {
             if (_blacklist[accounts[i]]) {
-                _blacklist[accounts[i]] = false;
-                emit RemovedFromBlacklist(accounts[i]);
+                removeFromBlacklist(accounts[i]);
             }
         }
     }

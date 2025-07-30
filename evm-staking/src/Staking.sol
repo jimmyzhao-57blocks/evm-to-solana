@@ -93,6 +93,10 @@ contract Staking is ReentrancyGuard, Ownable {
     }
 
     function claimRewards() external nonReentrant {
+        // Check if user is blacklisted
+        RestrictedStakingToken restrictedToken = RestrictedStakingToken(address(stakingToken));
+        require(!restrictedToken.isBlacklisted(msg.sender), "Address is blacklisted");
+        
         _claimRewards();
     }
 
