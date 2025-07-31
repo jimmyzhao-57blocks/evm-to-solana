@@ -1,7 +1,8 @@
+use crate::constants::*;
 use crate::errors::StakingError;
 use crate::events::Staked;
-use crate::instructions::utils::claim_pending_rewards;
-use crate::state::{BlacklistEntry, GlobalState, UserStakeInfo};
+use crate::state::{GlobalState, UserStakeInfo};
+use crate::utils::claim_pending_rewards;
 use anchor_lang::prelude::*;
 use anchor_spl::token::{self, Token, TokenAccount, Transfer};
 
@@ -12,19 +13,19 @@ pub struct Stake<'info> {
 
     #[account(
         mut,
-        seeds = [b"state"],
+        seeds = [STATE_SEED, state.staking_mint.as_ref()],
         bump = state.bump
     )]
-    pub state: Account<'info, GlobalState>,
+    pub state: Box<Account<'info, GlobalState>>,
 
     #[account(
         init_if_needed,
         payer = user,
         space = 8 + UserStakeInfo::INIT_SPACE,
-        seeds = [b"stake", user.key().as_ref()],
+        seeds = [STAKE_SEED, user.key().as_ref()],
         bump
     )]
-    pub user_stake_info: Account<'info, UserStakeInfo>,
+    pub user_stake_info: Box<Account<'info, UserStakeInfo>>,
 
     #[account(
         mut,
@@ -35,14 +36,14 @@ pub struct Stake<'info> {
 
     #[account(
         mut,
-        seeds = [b"staking_vault", state.key().as_ref()],
+        seeds = [STAKING_VAULT_SEED, state.key().as_ref()],
         bump
     )]
     pub staking_vault: Account<'info, TokenAccount>,
 
     #[account(
         mut,
-        seeds = [b"reward_vault", state.key().as_ref()],
+        seeds = [REWARD_VAULT_SEED, state.key().as_ref()],
         bump
     )]
     pub reward_vault: Account<'info, TokenAccount>,
@@ -54,11 +55,12 @@ pub struct Stake<'info> {
     )]
     pub user_reward_account: Account<'info, TokenAccount>,
 
+    /// CHECK: This account may or may not exist - we check if it exists to determine blacklist status
     #[account(
-        seeds = [b"blacklist", user.key().as_ref()],
+        seeds = [BLACKLIST_SEED, user.key().as_ref()],
         bump,
     )]
-    pub blacklist_entry: Option<Account<'info, BlacklistEntry>>,
+    pub blacklist_entry: UncheckedAccount<'info>,
 
     pub token_program: Program<'info, Token>,
     pub system_program: Program<'info, System>,
@@ -68,8 +70,9 @@ pub struct Stake<'info> {
 pub fn stake_handler(ctx: Context<Stake>, amount: u64) -> Result<()> {
     require!(amount > 0, StakingError::InvalidStakeAmount);
 
+    let blacklist_info = &ctx.accounts.blacklist_entry.to_account_info();
     require!(
-        ctx.accounts.blacklist_entry.is_none(),
+        blacklist_info.data_is_empty() || blacklist_info.lamports() == 0,
         StakingError::AddressBlacklisted
     );
 

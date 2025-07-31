@@ -2,6 +2,22 @@
 
 A Token Staking program implementation using Anchor framework. Users can stake tokens to earn rewards based on staking duration.
 
+## Prerequisites
+
+### Required Versions
+- **Rust**: 1.81.0
+- **Solana CLI**: 2.1.0
+- **Anchor**: 0.31.1
+- **Node.js**: 20.19.0
+- **Solana build-sbf**: 2.1.0
+
+You can check your installed versions:
+```bash
+npm run show-versions
+# or
+bash show-versions.sh
+```
+
 ## Features
 
 - Stake tokens to earn rewards

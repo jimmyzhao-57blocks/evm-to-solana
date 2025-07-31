@@ -1,3 +1,4 @@
+use crate::constants::*;
 use crate::events::Initialized;
 use crate::state::GlobalState;
 use anchor_lang::prelude::*;
@@ -12,10 +13,10 @@ pub struct Initialize<'info> {
         init,
         payer = admin,
         space = 8 + GlobalState::INIT_SPACE,
-        seeds = [b"state"],
+        seeds = [STATE_SEED, staking_mint.key().as_ref()],
         bump
     )]
-    pub state: Account<'info, GlobalState>,
+    pub state: Box<Account<'info, GlobalState>>,
 
     pub staking_mint: Account<'info, Mint>,
     pub reward_mint: Account<'info, Mint>,
@@ -25,7 +26,7 @@ pub struct Initialize<'info> {
         payer = admin,
         token::mint = staking_mint,
         token::authority = state,
-        seeds = [b"staking_vault", state.key().as_ref()],
+        seeds = [STAKING_VAULT_SEED, state.key().as_ref()],
         bump
     )]
     pub staking_vault: Account<'info, TokenAccount>,
@@ -35,7 +36,7 @@ pub struct Initialize<'info> {
         payer = admin,
         token::mint = reward_mint,
         token::authority = state,
-        seeds = [b"reward_vault", state.key().as_ref()],
+        seeds = [REWARD_VAULT_SEED, state.key().as_ref()],
         bump
     )]
     pub reward_vault: Account<'info, TokenAccount>,

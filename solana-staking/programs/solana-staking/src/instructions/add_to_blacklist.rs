@@ -1,7 +1,8 @@
-use anchor_lang::prelude::*;
-use crate::state::{GlobalState, BlacklistEntry};
+use crate::constants::*;
 use crate::errors::StakingError;
 use crate::events::AddedToBlacklist;
+use crate::state::{BlacklistEntry, GlobalState};
+use anchor_lang::prelude::*;
 
 #[derive(Accounts)]
 #[instruction(address: Pubkey)]
@@ -10,20 +11,20 @@ pub struct AddToBlacklist<'info> {
     pub admin: Signer<'info>,
 
     #[account(
-        seeds = [b"state"],
+        seeds = [STATE_SEED, state.staking_mint.as_ref()],
         bump = state.bump,
         has_one = admin
     )]
-    pub state: Account<'info, GlobalState>,
+    pub state: Box<Account<'info, GlobalState>>,
 
     #[account(
-        init_if_needed,
+        init,
         payer = admin,
         space = 8 + BlacklistEntry::INIT_SPACE,
-        seeds = [b"blacklist", address.as_ref()],
+        seeds = [BLACKLIST_SEED, address.as_ref()],
         bump
     )]
-    pub blacklist_entry: Account<'info, BlacklistEntry>,
+    pub blacklist_entry: Box<Account<'info, BlacklistEntry>>,
 
     pub system_program: Program<'info, System>,
 }
@@ -35,14 +36,8 @@ pub fn add_to_blacklist_handler(ctx: Context<AddToBlacklist>, address: Pubkey) -
     );
 
     let blacklist_entry = &mut ctx.accounts.blacklist_entry;
-    
-    // Check if address is already in blacklist
-    require!(
-        blacklist_entry.address == Pubkey::default(),
-        StakingError::AddressAlreadyBlacklisted
-    );
-    
-    // Only set data for new entries
+
+    // Set data for the entry (init constraint ensures this is a new account)
     let clock = Clock::get()?;
     blacklist_entry.address = address;
     blacklist_entry.added_at = clock.unix_timestamp;

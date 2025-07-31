@@ -47,6 +47,8 @@ describe("solana-staking", () => {
     blacklistEntry: PublicKey | null = null
   ) {
     const userStakePda = getUserStakePda(user.publicKey);
+    // Always use the user's blacklist PDA, whether it exists or not
+    const userBlacklistPda = getBlacklistPda(user.publicKey);
     const stakeInstruction = programClient.getStakeInstruction({
       user: userSigner,
       state: address(statePda.toBase58()),
@@ -56,9 +58,7 @@ describe("solana-staking", () => {
       rewardVault: address(rewardVaultPda.toBase58()),
       userRewardAccount: address(rewardToken.toBase58()),
       tokenProgram: address(TOKEN_PROGRAM_ID.toBase58()),
-      blacklistEntry: blacklistEntry
-        ? address(blacklistEntry.toBase58())
-        : null,
+      blacklistEntry: address(userBlacklistPda.toBase58()),
       amount: amount,
     });
     return await sendTransaction(provider, stakeInstruction, user);
@@ -73,6 +73,8 @@ describe("solana-staking", () => {
     blacklistEntry: PublicKey | null = null
   ) {
     const userStakePda = getUserStakePda(user.publicKey);
+    // Always use the user's blacklist PDA, whether it exists or not
+    const userBlacklistPda = getBlacklistPda(user.publicKey);
     const unstakeInstruction = programClient.getUnstakeInstruction({
       user: userSigner,
       state: address(statePda.toBase58()),
@@ -82,9 +84,7 @@ describe("solana-staking", () => {
       rewardVault: address(rewardVaultPda.toBase58()),
       userRewardAccount: address(rewardToken.toBase58()),
       tokenProgram: address(TOKEN_PROGRAM_ID.toBase58()),
-      blacklistEntry: blacklistEntry
-        ? address(blacklistEntry.toBase58())
-        : null,
+      blacklistEntry: address(userBlacklistPda.toBase58()),
       amount: amount,
     });
     return await sendTransaction(provider, unstakeInstruction, user);
@@ -97,6 +97,8 @@ describe("solana-staking", () => {
     blacklistEntry: PublicKey | null = null
   ) {
     const userStakePda = getUserStakePda(user.publicKey);
+    // Always use the user's blacklist PDA, whether it exists or not
+    const userBlacklistPda = getBlacklistPda(user.publicKey);
     const claimInstruction = programClient.getClaimRewardsInstruction({
       user: userSigner,
       state: address(statePda.toBase58()),
@@ -104,9 +106,7 @@ describe("solana-staking", () => {
       userRewardAccount: address(rewardToken.toBase58()),
       rewardVault: address(rewardVaultPda.toBase58()),
       tokenProgram: address(TOKEN_PROGRAM_ID.toBase58()),
-      blacklistEntry: blacklistEntry
-        ? address(blacklistEntry.toBase58())
-        : null,
+      blacklistEntry: address(userBlacklistPda.toBase58()),
     });
     return await sendTransaction(provider, claimInstruction, user);
   }
@@ -180,7 +180,7 @@ describe("solana-staking", () => {
 
     // Derive PDAs
     [statePda] = PublicKey.findProgramAddressSync(
-      [Buffer.from("state")],
+      [Buffer.from("state"), stakingMint.toBuffer()],
       programId
     );
 
@@ -924,7 +924,7 @@ describe("solana-staking", () => {
         expect.fail("Should have thrown an error");
       } catch (error: any) {
         expect(error).to.not.be.null;
-        expect(error.toString()).to.include("Address is already in blacklist");
+        expect(error.toString()).to.include("already in use");
       }
     });
 

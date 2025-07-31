@@ -26,18 +26,13 @@ import {
   decodeBlacklistEntry,
 } from "../dist/js-client";
 
-// Constants
-export const toToken = (amount: number): bigint =>
-  BigInt(amount) * BigInt(10 ** 9);
-
 // Program ID
 export const programId = new PublicKey(
   programClient.SOLANA_STAKING_PROGRAM_ADDRESS.toString()
 );
 
-// Token mints (will be initialized in before hook)
-// let stakingMint: PublicKey;
-// let rewardMint: PublicKey;
+export const toToken = (amount: number): bigint =>
+  BigInt(amount) * BigInt(10 ** 9);
 
 // Helper function to convert instruction
 export function toTransactionInstruction(

@@ -1,3 +1,4 @@
+use crate::constants::*;
 use crate::errors::StakingError;
 use crate::state::{GlobalState, UserStakeInfo};
 use anchor_lang::prelude::*;
@@ -36,7 +37,7 @@ pub fn claim_pending_rewards<'info>(
 
     if rewards > 0 {
         // Transfer rewards from reward vault to user
-        let seeds = &[b"state".as_ref(), &[state.bump]];
+        let seeds = &[STATE_SEED.as_ref(), state.staking_mint.as_ref(), &[state.bump]];
         let signer = &[&seeds[..]];
 
         let cpi_accounts = Transfer {
