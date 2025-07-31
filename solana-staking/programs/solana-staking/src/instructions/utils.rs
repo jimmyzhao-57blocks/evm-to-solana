@@ -24,6 +24,15 @@ pub fn claim_pending_rewards<'info>(
         clock.unix_timestamp,
         state.reward_rate,
     )?;
+    
+    msg!(
+        "Calculating rewards: amount={}, last_claim={}, current_time={}, rate={}, rewards={}",
+        user_stake.amount,
+        last_claim,
+        clock.unix_timestamp,
+        state.reward_rate,
+        rewards
+    );
 
     if rewards > 0 {
         // Transfer rewards from reward vault to user
@@ -57,6 +66,15 @@ pub fn calculate_rewards(
     reward_rate: u64,
 ) -> Result<u64> {
     let duration = (end_timestamp - start_timestamp) as u64; // duration in seconds
+    
+    msg!(
+        "calculate_rewards: amount={}, start={}, end={}, duration={}, rate={}",
+        amount,
+        start_timestamp,
+        end_timestamp,
+        duration,
+        reward_rate
+    );
 
     // Calculate rewards based on seconds to match EVM implementation
     // Formula: (amount * rate * time_in_seconds) / (seconds_per_day * precision)

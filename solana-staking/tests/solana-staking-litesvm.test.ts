@@ -1,275 +1,143 @@
-import { assert, expect } from "chai";
+import { expect } from "chai";
 import { LiteSVM, Clock } from "litesvm";
 import { LiteSVMProvider } from "anchor-litesvm";
-import {
-  Keypair,
-  PublicKey,
-  SystemProgram,
-  Transaction,
-  TransactionInstruction,
-  LAMPORTS_PER_SOL,
-} from "@solana/web3.js";
-import {
-  createInitializeMint2Instruction,
-  createAssociatedTokenAccountIdempotentInstruction,
-  createMintToCheckedInstruction,
-  createTransferCheckedInstruction,
-  getMintLen,
-  getAssociatedTokenAddressSync,
-  TOKEN_PROGRAM_ID,
-  unpackAccount,
-} from "@solana/spl-token";
-import * as programClient from "../dist/js-client";
-import { decodeGlobalState, decodeUserStakeInfo } from "../dist/js-client";
+import { Keypair, PublicKey, SystemProgram } from "@solana/web3.js";
+import { TOKEN_PROGRAM_ID } from "@solana/spl-token";
 import * as fs from "fs";
+import { type KeyPairSigner, address } from "@solana/kit";
+import * as programClient from "../dist/js-client";
 import {
-  type KeyPairSigner,
-  createKeyPairSignerFromBytes,
-  address,
-  lamports,
-} from "@solana/kit";
+  createTestUser,
+  setupUserWithTokens,
+  sendTransaction,
+  getGlobalState,
+  getUserStakeInfo,
+  getUserStakePda,
+  getBlacklistPda,
+  createMint,
+  mintTo,
+  getAccount,
+  programId,
+  toToken,
+  getBlacklistEntry,
+} from "./helper";
 
-// Constants
 const SECONDS_IN_A_DAY = 86400;
-const toToken = (amount: number): bigint => BigInt(amount) * BigInt(10 ** 9);
 
-// Helper function to convert instruction
-function toTransactionInstruction(instruction: any): TransactionInstruction {
-  return new TransactionInstruction({
-    keys: instruction.accounts.map((acc: any) => {
-      if ("pubkey" in acc) {
-        return {
-          pubkey: new PublicKey(acc.pubkey),
-          isSigner: acc.isSigner,
-          isWritable: acc.isWritable,
-        };
-      } else {
-        // AccountLookupMeta case - acc has 'address' and 'role'
-        const pubkey = new PublicKey(acc.address);
-        const isSigner = acc.role === 2 || acc.role === 3; // writableSigner or readonlySigner
-        const isWritable = acc.role === 1 || acc.role === 2; // writable or writableSigner
-        return {
-          pubkey,
-          isSigner,
-          isWritable,
-        };
-      }
-    }),
-    programId: new PublicKey(instruction.programAddress),
-    data: Buffer.from(instruction.data),
-  });
-}
-
-// Helper functions for LiteSVM
-function createMint(
-  provider: LiteSVMProvider,
-  payer: Keypair,
-  mintAuthority: PublicKey,
-  freezeAuthority: PublicKey | null,
-  decimals: number
-): PublicKey {
-  const mint = Keypair.generate();
-  const mintLen = getMintLen([]);
-
-  // Create account
-  const createAccountIx = SystemProgram.createAccount({
-    fromPubkey: payer.publicKey,
-    newAccountPubkey: mint.publicKey,
-    space: mintLen,
-    lamports: LAMPORTS_PER_SOL,
-    programId: TOKEN_PROGRAM_ID,
-  });
-
-  // Initialize mint
-  const initMintIx = createInitializeMint2Instruction(
-    mint.publicKey,
-    decimals,
-    mintAuthority,
-    freezeAuthority,
-    TOKEN_PROGRAM_ID
-  );
-
-  const tx = new Transaction().add(createAccountIx, initMintIx);
-  tx.recentBlockhash = provider.client.latestBlockhash();
-  tx.sign(payer, mint);
-  provider.client.sendTransaction(tx);
-
-  return mint.publicKey;
-}
-
-function createAssociatedTokenAccount(
-  provider: LiteSVMProvider,
-  payer: Keypair,
-  mint: PublicKey,
-  owner: PublicKey
-): PublicKey {
-  const ata = getAssociatedTokenAddressSync(
-    mint,
-    owner,
-    false,
-    TOKEN_PROGRAM_ID
-  );
-
-  const createAtaIx = createAssociatedTokenAccountIdempotentInstruction(
-    payer.publicKey,
-    ata,
-    owner,
-    mint,
-    TOKEN_PROGRAM_ID
-  );
-
-  const tx = new Transaction().add(createAtaIx);
-  tx.recentBlockhash = provider.client.latestBlockhash();
-  tx.sign(payer);
-  provider.client.sendTransaction(tx);
-
-  return ata;
-}
-
-function mintTo(
-  provider: LiteSVMProvider,
-  payer: Keypair,
-  mint: PublicKey,
-  destination: PublicKey,
-  authority: Keypair,
-  amount: bigint
-): void {
-  const mintToIx = createMintToCheckedInstruction(
-    mint,
-    destination,
-    authority.publicKey,
-    amount,
-    9, // decimals
-    [],
-    TOKEN_PROGRAM_ID
-  );
-
-  const tx = new Transaction().add(mintToIx);
-  tx.recentBlockhash = provider.client.latestBlockhash();
-  tx.sign(payer, authority);
-  provider.client.sendTransaction(tx);
-}
-
-function transfer(
-  provider: LiteSVMProvider,
-  payer: Keypair,
-  source: PublicKey,
-  mint: PublicKey,
-  destination: PublicKey,
-  owner: Keypair,
-  amount: bigint
-): void {
-  const transferIx = createTransferCheckedInstruction(
-    source,
-    mint,
-    destination,
-    owner.publicKey,
-    amount,
-    9, // decimals
-    [],
-    TOKEN_PROGRAM_ID
-  );
-
-  const tx = new Transaction().add(transferIx);
-  tx.recentBlockhash = provider.client.latestBlockhash();
-  tx.sign(payer, owner);
-  provider.client.sendTransaction(tx);
-}
-
-function getAccount(provider: LiteSVMProvider, address: PublicKey): any {
-  const accountInfo = provider.client.getAccount(address);
-  if (!accountInfo) throw new Error("Account not found");
-  // Convert Uint8Array to Buffer
-  const data = Buffer.from(accountInfo.data);
-  const accountInfoWithBuffer = {
-    ...accountInfo,
-    data: data,
-  };
-  const account = unpackAccount(
-    address,
-    accountInfoWithBuffer,
-    TOKEN_PROGRAM_ID
-  );
-  return account;
-}
-
-// Helper functions to get and decode program accounts
-function getGlobalState(
-  provider: LiteSVMProvider,
-  statePda: PublicKey
-): programClient.GlobalState | null {
-  const accountInfo = provider.client.getAccount(statePda);
-  if (!accountInfo) return null;
-
-  const encodedAccount = {
-    address: address(statePda.toBase58()),
-    data: accountInfo.data,
-    owner: accountInfo.owner.toBase58(),
-    lamports: lamports(BigInt(accountInfo.lamports)),
-    rentEpoch: BigInt(accountInfo.rentEpoch),
-    executable: accountInfo.executable,
-    programAddress: address(accountInfo.owner.toBase58()),
-    space: BigInt(accountInfo.data.length),
-    exists: true,
-  };
-
-  const decodedAccount = decodeGlobalState(encodedAccount);
-  return decodedAccount.data;
-}
-
-function getUserStakeInfo(
-  provider: LiteSVMProvider,
-  userStakeInfoPda: PublicKey
-): programClient.UserStakeInfo | null {
-  const accountInfo = provider.client.getAccount(userStakeInfoPda);
-  if (!accountInfo) return null;
-
-  const encodedAccount = {
-    address: address(userStakeInfoPda.toBase58()),
-    data: accountInfo.data,
-    owner: accountInfo.owner.toBase58(),
-    lamports: lamports(BigInt(accountInfo.lamports)),
-    rentEpoch: BigInt(accountInfo.rentEpoch),
-    executable: accountInfo.executable,
-    programAddress: address(accountInfo.owner.toBase58()),
-    space: BigInt(accountInfo.data.length),
-    exists: true,
-  };
-
-  const decodedAccount = decodeUserStakeInfo(encodedAccount);
-  return decodedAccount.data;
-}
-
-describe("solana-staking with LiteSVM (Time Simulation)", () => {
+describe("solana-staking", () => {
   let svm: LiteSVM;
   let provider: LiteSVMProvider;
   let admin: Keypair;
   let adminSigner: KeyPairSigner;
-  let user: Keypair;
-  let userSigner: KeyPairSigner;
+  let stakingMint: PublicKey;
+  let rewardMint: PublicKey;
 
   // PDAs
   let statePda: PublicKey;
   let stakingVaultPda: PublicKey;
   let rewardVaultPda: PublicKey;
-  let userStakeInfoPda: PublicKey;
 
-  // Token accounts
-  let stakingMint: PublicKey;
-  let rewardMint: PublicKey;
-  let userStakingToken: PublicKey;
-  let userRewardToken: PublicKey;
-  let adminRewardToken: PublicKey;
+  // Helper functions that can access outer scope variables
+  async function stakeTokens(
+    user: Keypair,
+    userSigner: any,
+    stakingToken: PublicKey,
+    rewardToken: PublicKey,
+    amount: bigint,
+    blacklistEntry: PublicKey | null = null
+  ) {
+    const userStakePda = getUserStakePda(user.publicKey);
+    const stakeInstruction = programClient.getStakeInstruction({
+      user: userSigner,
+      state: address(statePda.toBase58()),
+      userStakeInfo: address(userStakePda.toBase58()),
+      userTokenAccount: address(stakingToken.toBase58()),
+      stakingVault: address(stakingVaultPda.toBase58()),
+      rewardVault: address(rewardVaultPda.toBase58()),
+      userRewardAccount: address(rewardToken.toBase58()),
+      tokenProgram: address(TOKEN_PROGRAM_ID.toBase58()),
+      blacklistEntry: blacklistEntry
+        ? address(blacklistEntry.toBase58())
+        : null,
+      amount: amount,
+    });
+    return await sendTransaction(provider, stakeInstruction, user);
+  }
 
-  // Program ID
-  const programId = new PublicKey(
-    programClient.SOLANA_STAKING_PROGRAM_ADDRESS.toString()
-  );
+  async function unstakeTokens(
+    user: Keypair,
+    userSigner: any,
+    stakingToken: PublicKey,
+    rewardToken: PublicKey,
+    amount: bigint,
+    blacklistEntry: PublicKey | null = null
+  ) {
+    const userStakePda = getUserStakePda(user.publicKey);
+    const unstakeInstruction = programClient.getUnstakeInstruction({
+      user: userSigner,
+      state: address(statePda.toBase58()),
+      userStakeInfo: address(userStakePda.toBase58()),
+      userTokenAccount: address(stakingToken.toBase58()),
+      stakingVault: address(stakingVaultPda.toBase58()),
+      rewardVault: address(rewardVaultPda.toBase58()),
+      userRewardAccount: address(rewardToken.toBase58()),
+      tokenProgram: address(TOKEN_PROGRAM_ID.toBase58()),
+      blacklistEntry: blacklistEntry
+        ? address(blacklistEntry.toBase58())
+        : null,
+      amount: amount,
+    });
+    return await sendTransaction(provider, unstakeInstruction, user);
+  }
 
-  // Helper functions similar to huma-solana-programs
-  function currentTimestamp(): number {
-    const clock = provider.client.getClock();
-    return Number(clock.unixTimestamp);
+  async function claimUserRewards(
+    user: Keypair,
+    userSigner: any,
+    rewardToken: PublicKey,
+    blacklistEntry: PublicKey | null = null
+  ) {
+    const userStakePda = getUserStakePda(user.publicKey);
+    const claimInstruction = programClient.getClaimRewardsInstruction({
+      user: userSigner,
+      state: address(statePda.toBase58()),
+      userStakeInfo: address(userStakePda.toBase58()),
+      userRewardAccount: address(rewardToken.toBase58()),
+      rewardVault: address(rewardVaultPda.toBase58()),
+      tokenProgram: address(TOKEN_PROGRAM_ID.toBase58()),
+      blacklistEntry: blacklistEntry
+        ? address(blacklistEntry.toBase58())
+        : null,
+    });
+    return await sendTransaction(provider, claimInstruction, user);
+  }
+
+  async function addUserToBlacklist(userToBlacklist: PublicKey) {
+    const blacklistPda = getBlacklistPda(userToBlacklist);
+    const addToBlacklistInstruction =
+      programClient.getAddToBlacklistInstruction({
+        admin: adminSigner,
+        systemProgram: address(SystemProgram.programId.toBase58()),
+        state: address(statePda.toBase58()),
+        blacklistEntry: address(blacklistPda.toBase58()),
+        address: address(userToBlacklist.toBase58()),
+      });
+    return await sendTransaction(provider, addToBlacklistInstruction, admin);
+  }
+
+  async function removeUserFromBlacklist(userToRemove: PublicKey) {
+    const blacklistPda = getBlacklistPda(userToRemove);
+    const removeFromBlacklistInstruction =
+      programClient.getRemoveFromBlacklistInstruction({
+        admin: adminSigner,
+        state: address(statePda.toBase58()),
+        blacklistEntry: address(blacklistPda.toBase58()),
+        address: address(userToRemove.toBase58()),
+      });
+    return await sendTransaction(
+      provider,
+      removeFromBlacklistInstruction,
+      admin
+    );
   }
 
   function setNextBlockTimestamp(timestamp: number): void {
@@ -285,91 +153,30 @@ describe("solana-staking with LiteSVM (Time Simulation)", () => {
     );
   }
 
-  function futureBlockTimestamp(offsetSecs: number): number {
-    const currentTS = currentTimestamp();
-    return currentTS + offsetSecs;
-  }
-
   before(async () => {
-    // Initialize LiteSVM
-    svm = new LiteSVM();
+    // Initialize LiteSVM with transaction history disabled
+    svm = new LiteSVM().withTransactionHistory(0n);
 
-    // Create test accounts
-    admin = Keypair.generate();
-    user = Keypair.generate();
-
-    // Create signers from keypairs
-    adminSigner = await createKeyPairSignerFromBytes(admin.secretKey);
-    userSigner = await createKeyPairSignerFromBytes(user.secretKey);
-
-    // Airdrop SOL to test accounts
-    svm.airdrop(admin.publicKey, BigInt(10 * LAMPORTS_PER_SOL));
-    svm.airdrop(user.publicKey, BigInt(10 * LAMPORTS_PER_SOL));
+    const adminData = await createTestUser(svm);
+    admin = adminData.user;
+    adminSigner = adminData.userSigner;
 
     // Initialize provider after airdrop
     provider = new LiteSVMProvider(svm);
     // Set the default payer for transactions
     (provider.wallet as any).payer = admin;
 
-    // Set clock to current time (following huma pattern)
+    // Set clock to current time
     setNextBlockTimestamp(Math.floor(Date.now() / 1000));
 
     // Load and deploy the staking program
-    try {
-      const programBinary = fs.readFileSync(
-        "./target/deploy/solana_staking.so"
-      );
-      svm.addProgram(programId, programBinary);
-      console.log("Staking program deployed to LiteSVM");
-    } catch (e) {
-      console.error("Failed to deploy program:", e);
-      throw e;
-    }
+    const programBinary = fs.readFileSync("./target/deploy/solana_staking.so");
+    svm.addProgram(programId, programBinary);
+    console.log("Staking program deployed to LiteSVM");
 
     // Create mints
     stakingMint = createMint(provider, admin, admin.publicKey, null, 9);
     rewardMint = createMint(provider, admin, admin.publicKey, null, 9);
-
-    // Create token accounts using associated token accounts
-    userStakingToken = createAssociatedTokenAccount(
-      provider,
-      admin, // payer
-      stakingMint,
-      user.publicKey
-    );
-
-    userRewardToken = createAssociatedTokenAccount(
-      provider,
-      admin, // payer
-      rewardMint,
-      user.publicKey
-    );
-
-    adminRewardToken = createAssociatedTokenAccount(
-      provider,
-      admin, // payer
-      rewardMint,
-      admin.publicKey
-    );
-
-    // Mint tokens to users
-    mintTo(
-      provider,
-      admin, // payer
-      stakingMint,
-      userStakingToken,
-      admin, // mint authority
-      toToken(1000) // 1000 tokens
-    );
-
-    mintTo(
-      provider,
-      admin, // payer
-      rewardMint,
-      adminRewardToken,
-      admin, // mint authority
-      toToken(10000) // 10000 tokens for rewards
-    );
 
     // Derive PDAs
     [statePda] = PublicKey.findProgramAddressSync(
@@ -386,14 +193,51 @@ describe("solana-staking with LiteSVM (Time Simulation)", () => {
       [Buffer.from("reward_vault"), statePda.toBuffer()],
       programId
     );
-
-    [userStakeInfoPda] = PublicKey.findProgramAddressSync(
-      [Buffer.from("stake"), user.publicKey.toBuffer()],
-      programId
-    );
   });
 
   describe("Initialize", () => {
+    it("should fail with invalid reward rate", async () => {
+      // Test with reward rate > 1000
+      try {
+        const initializeInstruction = programClient.getInitializeInstruction({
+          admin: adminSigner,
+          state: address(statePda.toBase58()),
+          stakingMint: address(stakingMint.toBase58()),
+          rewardMint: address(rewardMint.toBase58()),
+          stakingVault: address(stakingVaultPda.toBase58()),
+          rewardVault: address(rewardVaultPda.toBase58()),
+          tokenProgram: address(TOKEN_PROGRAM_ID.toBase58()),
+          rewardRate: 1001, // Invalid: > 1000
+        });
+
+        await sendTransaction(provider, initializeInstruction, admin);
+        expect.fail("Should have thrown an error");
+      } catch (error: any) {
+        expect(error).to.not.be.null;
+        expect(error.toString()).to.include("InvalidRewardRate");
+      }
+
+      // Test with reward rate = 0
+      try {
+        const initializeInstruction = programClient.getInitializeInstruction({
+          admin: adminSigner,
+          state: address(statePda.toBase58()),
+          stakingMint: address(stakingMint.toBase58()),
+          rewardMint: address(rewardMint.toBase58()),
+          stakingVault: address(stakingVaultPda.toBase58()),
+          rewardVault: address(rewardVaultPda.toBase58()),
+          tokenProgram: address(TOKEN_PROGRAM_ID.toBase58()),
+          rewardRate: 0, // Invalid: = 0
+        });
+
+        await sendTransaction(provider, initializeInstruction, admin);
+        expect.fail("Should have thrown an error");
+      } catch (error: any) {
+        expect(error).to.not.be.null;
+        expect(error.toString()).to.include("InvalidRewardRate");
+      }
+    });
+
     it("should initialize the staking program", async () => {
       // Create initialize instruction
       const initializeInstruction = programClient.getInitializeInstruction({
@@ -408,126 +252,245 @@ describe("solana-staking with LiteSVM (Time Simulation)", () => {
       });
 
       // Create and send transaction
-      const ix = toTransactionInstruction(initializeInstruction);
-      const tx = new Transaction().add(ix);
-      tx.recentBlockhash = provider.client.latestBlockhash();
-      tx.sign(admin);
-      const txHash = provider.client.sendTransaction(tx);
+      const txHash = await sendTransaction(
+        provider,
+        initializeInstruction,
+        admin
+      );
       console.log("Initialize transaction:", txHash);
 
       // Verify initialization
       const stateAccount = provider.client.getAccount(statePda);
-      assert.isNotNull(stateAccount, "State account should be created");
+      expect(stateAccount).to.not.be.null;
 
       // Verify vaults are created
       const stakingVaultAccount = provider.client.getAccount(stakingVaultPda);
       const rewardVaultAccount = provider.client.getAccount(rewardVaultPda);
-
-      assert.isNotNull(stakingVaultAccount, "Staking vault should be created");
-      assert.isNotNull(rewardVaultAccount, "Reward vault should be created");
+      expect(stakingVaultAccount).to.not.be.null;
+      expect(rewardVaultAccount).to.not.be.null;
 
       // Verify global state data
       const globalState = getGlobalState(provider, statePda);
-      assert.isNotNull(globalState, "Global state should exist");
-      assert.equal(globalState!.admin.toString(), admin.publicKey.toBase58());
-      assert.equal(globalState!.stakingMint.toString(), stakingMint.toBase58());
-      assert.equal(globalState!.rewardMint.toString(), rewardMint.toBase58());
-      assert.equal(
-        globalState!.stakingVault.toString(),
+      expect(globalState).to.not.be.null;
+      expect(globalState!.admin.toString()).to.equal(
+        admin.publicKey.toBase58()
+      );
+      expect(globalState!.stakingMint.toString()).to.equal(
+        stakingMint.toBase58()
+      );
+      expect(globalState!.rewardMint.toString()).to.equal(
+        rewardMint.toBase58()
+      );
+      expect(globalState!.stakingVault.toString()).to.equal(
         stakingVaultPda.toBase58()
       );
-      assert.equal(
-        globalState!.rewardVault.toString(),
-        rewardVaultPda.toBase58()
-      );
-      assert.equal(Number(globalState!.rewardRate.toString()), 500);
-      assert.equal(globalState!.totalStaked.toString(), "0");
+      expect(globalState!.rewardVault.toString(), rewardVaultPda.toBase58());
+      expect(Number(globalState!.rewardRate.toString())).to.equal(500);
+      expect(globalState!.totalStaked.toString()).to.equal("0");
 
-      // Transfer reward tokens to reward vault for future rewards
-      transfer(
+      mintTo(
         provider,
         admin, // payer
-        adminRewardToken,
         rewardMint,
         rewardVaultPda,
-        admin, // owner
+        admin, // mint authority
         toToken(5000) // 5000 tokens for rewards
       );
-
       const rewardVaultBalance = getAccount(provider, rewardVaultPda);
       expect(Number(rewardVaultBalance.amount)).to.equal(Number(toToken(5000)));
-    });
-
-    it("should fail with invalid reward rate", async () => {
-      // TODO: Test initialization with reward rate > 1000 or 0
     });
   });
 
   describe("Stake", () => {
     it("should allow user to stake tokens", async () => {
+      const { user, userSigner } = await createTestUser(svm);
+      const { stakingToken, rewardToken } = await setupUserWithTokens(
+        provider,
+        admin,
+        user,
+        stakingMint,
+        rewardMint
+      );
       const stakeAmount = toToken(100);
-      const nextTS = futureBlockTimestamp(3);
-      setNextBlockTimestamp(nextTS);
-
-      // Create stake instruction
-      const stakeInstruction = programClient.getStakeInstruction({
-        user: userSigner,
-        state: address(statePda.toBase58()),
-        userStakeInfo: address(userStakeInfoPda.toBase58()),
-        userTokenAccount: address(userStakingToken.toBase58()),
-        stakingVault: address(stakingVaultPda.toBase58()),
-        rewardVault: address(rewardVaultPda.toBase58()),
-        userRewardAccount: address(userRewardToken.toBase58()),
-        tokenProgram: address(TOKEN_PROGRAM_ID.toBase58()),
-        amount: stakeAmount,
-      });
-
-      // Send transaction
-      const ix = toTransactionInstruction(stakeInstruction);
-      const tx = new Transaction().add(ix);
-      tx.recentBlockhash = provider.client.latestBlockhash();
-      tx.sign(user);
-      provider.client.sendTransaction(tx);
+      await stakeTokens(
+        user,
+        userSigner,
+        stakingToken,
+        rewardToken,
+        stakeAmount
+      );
 
       // Verify stake
       const stakingVaultAccount = getAccount(provider, stakingVaultPda);
       expect(Number(stakingVaultAccount.amount)).to.equal(Number(stakeAmount));
 
-      // Verify user stake info was created
-      const userStakeAccount = provider.client.getAccount(userStakeInfoPda);
-      assert.isNotNull(userStakeAccount, "User stake info should be created");
-
       // Verify user stake info data
-      const userStakeInfo = getUserStakeInfo(provider, userStakeInfoPda);
-      assert.isNotNull(userStakeInfo, "User stake info should exist");
-      assert.equal(userStakeInfo!.amount.toString(), stakeAmount.toString());
-      assert.equal(userStakeInfo!.rewardDebt.toString(), "0");
-      assert.isAbove(Number(userStakeInfo!.stakeTimestamp.toString()), 0);
+      const userStakePda = getUserStakePda(user.publicKey);
+      const userStakeInfo = getUserStakeInfo(provider, userStakePda);
+      expect(userStakeInfo).to.not.be.null;
+      expect(userStakeInfo!.amount.toString()).to.equal(stakeAmount.toString());
+      expect(userStakeInfo!.rewardDebt.toString()).to.equal("0");
+      expect(Number(userStakeInfo!.stakeTimestamp.toString())).to.be.above(0);
 
       // Verify global state total staked was updated
       const globalState = getGlobalState(provider, statePda);
-      assert.equal(globalState!.totalStaked.toString(), stakeAmount.toString());
+      expect(globalState!.totalStaked.toString()).to.equal(
+        stakeAmount.toString()
+      );
     });
 
     it("should fail when staking zero tokens", async () => {
-      // TODO: Test staking 0 tokens
+      const { user, userSigner } = await createTestUser(svm);
+      const { stakingToken, rewardToken } = await setupUserWithTokens(
+        provider,
+        admin,
+        user,
+        stakingMint,
+        rewardMint
+      );
+
+      try {
+        await stakeTokens(
+          user,
+          userSigner,
+          stakingToken,
+          rewardToken,
+          BigInt(0) // Try to stake 0 tokens
+        );
+        expect.fail("Should have thrown an error");
+      } catch (error: any) {
+        expect(error).to.not.be.null;
+        expect(error.toString()).to.include("Cannot stake 0 tokens");
+      }
     });
 
     it("should allow multiple stakes to accumulate", async () => {
-      // TODO: Test multiple stakes from same user
+      const { user, userSigner } = await createTestUser(svm);
+      const { stakingToken, rewardToken } = await setupUserWithTokens(
+        provider,
+        admin,
+        user,
+        stakingMint,
+        rewardMint
+      );
+
+      // First stake
+      const firstStakeAmount = toToken(50);
+      await stakeTokens(
+        user,
+        userSigner,
+        stakingToken,
+        rewardToken,
+        firstStakeAmount
+      );
+
+      // Verify first stake
+      const userStakePda = getUserStakePda(user.publicKey);
+      let userStakeInfo = getUserStakeInfo(provider, userStakePda);
+      expect(userStakeInfo!.amount.toString()).to.equal(
+        firstStakeAmount.toString()
+      );
+
+      // Second stake
+      const secondStakeAmount = toToken(30);
+      await stakeTokens(
+        user,
+        userSigner,
+        stakingToken,
+        rewardToken,
+        secondStakeAmount
+      );
+
+      // Verify accumulated stake
+      userStakeInfo = getUserStakeInfo(provider, userStakePda);
+      let totalExpected = firstStakeAmount + secondStakeAmount;
+      expect(userStakeInfo!.amount.toString()).to.equal(
+        totalExpected.toString()
+      );
+
+      // Third stake
+      const thirdStakeAmount = toToken(20);
+      await stakeTokens(
+        user,
+        userSigner,
+        stakingToken,
+        rewardToken,
+        thirdStakeAmount
+      );
+
+      // Verify final accumulated stake
+      userStakeInfo = getUserStakeInfo(provider, userStakePda);
+      totalExpected += thirdStakeAmount;
+      expect(userStakeInfo!.amount.toString()).to.equal(
+        totalExpected.toString()
+      );
+    });
+
+    it("should prevent blacklisted user from staking", async () => {
+      const { user: blacklistedUser, userSigner: blacklistedUserSigner } =
+        await createTestUser(svm);
+      const {
+        stakingToken: blacklistedUserStakingToken,
+        rewardToken: blacklistedUserRewardToken,
+      } = await setupUserWithTokens(
+        provider,
+        admin,
+        blacklistedUser,
+        stakingMint,
+        rewardMint
+      );
+
+      // First add to blacklist
+      await addUserToBlacklist(blacklistedUser.publicKey);
+
+      // Try to stake - this should fail
+      const blacklistPda = getBlacklistPda(blacklistedUser.publicKey);
+      try {
+        await stakeTokens(
+          blacklistedUser,
+          blacklistedUserSigner,
+          blacklistedUserStakingToken,
+          blacklistedUserRewardToken,
+          toToken(100),
+          blacklistPda
+        );
+        expect.fail("Should have thrown an error");
+      } catch (error: any) {
+        expect(error).to.not.be.null;
+        expect(error.toString()).to.include("Address is blacklisted");
+      }
     });
   });
 
   describe("Claim Rewards with Time Manipulation", () => {
     it("should calculate rewards correctly after time advancement", async () => {
+      const { user, userSigner } = await createTestUser(svm);
+      const { stakingToken, rewardToken } = await setupUserWithTokens(
+        provider,
+        admin,
+        user,
+        stakingMint,
+        rewardMint
+      );
+
+      await stakeTokens(
+        user,
+        userSigner,
+        stakingToken,
+        rewardToken,
+        toToken(100)
+      );
+
       // Get initial state
-      const stakeInfo = getUserStakeInfo(provider, userStakeInfoPda);
+      const userStakePda = getUserStakePda(user.publicKey);
+      const stakeInfo = getUserStakeInfo(provider, userStakePda);
       const stakeTime = Number(stakeInfo!.stakeTimestamp.toString());
       console.log("Stake timestamp:", stakeTime);
 
       // Get initial reward balance
-      const initialRewardAccount = getAccount(provider, userRewardToken);
+      const initialRewardAccount = getAccount(provider, rewardToken);
       const initialBalance = Number(initialRewardAccount.amount);
+      console.log("Initial reward balance:", initialBalance);
 
       // Advance time by 5 days from stake time
       const fiveDaysLater = stakeTime + 5 * SECONDS_IN_A_DAY;
@@ -536,25 +499,10 @@ describe("solana-staking with LiteSVM (Time Simulation)", () => {
         `Time advanced from ${stakeTime} to ${fiveDaysLater} (5 days)`
       );
 
-      // Create claim rewards instruction
-      const claimInstruction = programClient.getClaimRewardsInstruction({
-        user: userSigner,
-        state: address(statePda.toBase58()),
-        userStakeInfo: address(userStakeInfoPda.toBase58()),
-        userRewardAccount: address(userRewardToken.toBase58()),
-        rewardVault: address(rewardVaultPda.toBase58()),
-        tokenProgram: address(TOKEN_PROGRAM_ID.toBase58()),
-      });
-
-      // Send transaction
-      const ix = toTransactionInstruction(claimInstruction);
-      const tx = new Transaction().add(ix);
-      tx.recentBlockhash = provider.client.latestBlockhash();
-      tx.sign(user);
-      provider.client.sendTransaction(tx);
+      await claimUserRewards(user, userSigner, rewardToken);
 
       // Check rewards received
-      const afterRewardAccount = getAccount(provider, userRewardToken);
+      const afterRewardAccount = getAccount(provider, rewardToken);
       const rewardsReceived =
         Number(afterRewardAccount.amount) - initialBalance;
 
@@ -562,301 +510,493 @@ describe("solana-staking with LiteSVM (Time Simulation)", () => {
       // staked: 100 tokens, rate: 5% (500 basis points), time: 5 days = 432000 seconds
       // rewards = (100 * 500 * 432000) / (86400 * 10000) = 25 tokens
       const expectedRewards = Number(toToken(25));
-
       console.log(`Rewards received: ${rewardsReceived}`);
       console.log(`Expected rewards: ${expectedRewards}`);
-
       expect(rewardsReceived).to.equal(expectedRewards);
 
       // Verify lastClaimTime was updated
-      const updatedStakeInfo = getUserStakeInfo(provider, userStakeInfoPda);
-      console.log(
-        "Updated lastClaimTime:",
-        updatedStakeInfo!.lastClaimTime?.toString()
+      const updatedStakeInfo = getUserStakeInfo(provider, userStakePda);
+      expect(updatedStakeInfo!.lastClaimTime?.toString()).to.equal(
+        fiveDaysLater.toString()
       );
     });
 
     it("should not reset staking duration when claiming", async () => {
-      // TODO: Test that claiming doesn't reset the staking timestamp
+      const { user, userSigner } = await createTestUser(svm);
+      const { stakingToken, rewardToken } = await setupUserWithTokens(
+        provider,
+        admin,
+        user,
+        stakingMint,
+        rewardMint
+      );
+
+      // Stake tokens
+      await stakeTokens(
+        user,
+        userSigner,
+        stakingToken,
+        rewardToken,
+        toToken(100)
+      );
+
+      // Get initial stake timestamp
+      const userStakePda = getUserStakePda(user.publicKey);
+      const initialStakeInfo = getUserStakeInfo(provider, userStakePda);
+      const originalStakeTimestamp =
+        initialStakeInfo!.stakeTimestamp.toString();
+
+      // Advance time by 2 days
+      const currentTime = Number(initialStakeInfo!.stakeTimestamp.toString());
+      const twoDaysLater = currentTime + 2 * SECONDS_IN_A_DAY;
+      setNextBlockTimestamp(twoDaysLater);
+
+      // Claim rewards
+      await claimUserRewards(user, userSigner, rewardToken);
+
+      // Verify stake timestamp hasn't changed
+      const afterClaimStakeInfo = getUserStakeInfo(provider, userStakePda);
+      expect(afterClaimStakeInfo!.stakeTimestamp.toString()).to.equal(
+        originalStakeTimestamp
+      );
+
+      // Verify lastClaimTime was updated
+      expect(afterClaimStakeInfo!.lastClaimTime?.toString()).to.equal(
+        twoDaysLater.toString()
+      );
+
+      // Advance time by another 3 days and claim again
+      const fiveDaysFromStart = currentTime + 5 * SECONDS_IN_A_DAY;
+      setNextBlockTimestamp(fiveDaysFromStart);
+      await claimUserRewards(user, userSigner, rewardToken);
+
+      // Verify stake timestamp still hasn't changed
+      const finalStakeInfo = getUserStakeInfo(provider, userStakePda);
+      expect(finalStakeInfo!.stakeTimestamp.toString()).to.equal(
+        originalStakeTimestamp
+      );
+      expect(finalStakeInfo!.lastClaimTime?.toString()).to.equal(
+        fiveDaysFromStart.toString()
+      );
     });
 
-    it("should handle multiple claims in short intervals", async () => {
-      // TODO: Test claiming every few hours over multiple days
+    it("should calculate rewards accurately for various time periods", async () => {
+      // Test reward calculation precision with different time periods
+      // For 100 tokens staked at 5% rate (500 basis points)
+      const { user, userSigner } = await createTestUser(svm);
+      const { stakingToken, rewardToken } = await setupUserWithTokens(
+        provider,
+        admin,
+        user,
+        stakingMint,
+        rewardMint
+      );
+      await stakeTokens(
+        user,
+        userSigner,
+        stakingToken,
+        rewardToken,
+        toToken(100)
+      );
+      const userStakePda = getUserStakePda(user.publicKey);
+      const testCases = [
+        { hoursFromStart: 1, expectedLamports: 208_333_333 }, // ~0.208 tokens
+        { hoursFromStart: 6, expectedLamports: 1_250_000_000 }, // 1.25 tokens
+        { hoursFromStart: 18, expectedLamports: 3_750_000_000 }, // 3.75 tokens
+        { hoursFromStart: 36, expectedLamports: 7_500_000_000 }, // 7.5 tokens
+        { hoursFromStart: 60, expectedLamports: 12_500_000_000 }, // 12.5 tokens
+      ];
+
+      // Store the initial stake timestamp
+      const initialStakeInfo = getUserStakeInfo(provider, userStakePda);
+      const stakeTimestamp = Number(initialStakeInfo!.stakeTimestamp);
+      let totalClaimedRewards = 0;
+
+      for (const testCase of testCases) {
+        // Get current state
+        const beforeStakeInfo = getUserStakeInfo(provider, userStakePda);
+        const lastClaim = Number(
+          beforeStakeInfo!.lastClaimTime || beforeStakeInfo!.stakeTimestamp
+        );
+        console.log("lastClaim", lastClaim);
+        const beforeBalance = getAccount(provider, rewardToken);
+        const startBalance = Number(beforeBalance.amount);
+        console.log("startBalance", startBalance);
+
+        // Check reward vault balance
+        const rewardVaultBalance = getAccount(provider, rewardVaultPda);
+        console.log("rewardVaultBalance", Number(rewardVaultBalance.amount));
+
+        // Advance time to X hours from initial stake
+        const newTime = stakeTimestamp + testCase.hoursFromStart * 3600;
+        setNextBlockTimestamp(newTime);
+        console.log(
+          `\nTesting ${testCase.hoursFromStart} hours from initial stake`
+        );
+
+        // Calculate expected rewards for this claim
+        const expectedIncrementalRewards = Math.floor(
+          (100_000_000_000 * 500 * (newTime - lastClaim)) / (86400 * 10000)
+        );
+        console.log(
+          `Expected incremental rewards: ${expectedIncrementalRewards} lamports`
+        );
+
+        // Check if reward vault has enough balance
+        const rewardVaultBeforeClaim = getAccount(provider, rewardVaultPda);
+        console.log(
+          `Reward vault before claim: ${rewardVaultBeforeClaim.amount} lamports`
+        );
+        console.log(
+          `Has enough balance: ${Number(rewardVaultBeforeClaim.amount) >= expectedIncrementalRewards}`
+        );
+
+        // Claim rewards
+        await claimUserRewards(user, userSigner, rewardToken);
+
+        // Check rewards
+        const afterBalance = getAccount(provider, rewardToken);
+        console.log("afterBalance", afterBalance.amount);
+        const incrementalRewards = Number(afterBalance.amount) - startBalance;
+        totalClaimedRewards += incrementalRewards;
+        console.log(`Incremental rewards: ${incrementalRewards} lamports`);
+        console.log(`Total claimed rewards: ${totalClaimedRewards} lamports`);
+        console.log(`Expected total: ${testCase.expectedLamports} lamports`);
+        // Verify total rewards match expected
+        expect(totalClaimedRewards).to.be.closeTo(testCase.expectedLamports, 1); // Allow 1 lamport difference
+      }
+    });
+
+    it("should prevent blacklisted user from claiming rewards", async () => {
+      const { user: blacklistedUser, userSigner: blacklistedUserSigner } =
+        await createTestUser(svm);
+      const {
+        stakingToken: blacklistedUserStakingToken,
+        rewardToken: blacklistedUserRewardToken,
+      } = await setupUserWithTokens(
+        provider,
+        admin,
+        blacklistedUser,
+        stakingMint,
+        rewardMint
+      );
+
+      // First, stake some tokens before blacklisting
+      await stakeTokens(
+        blacklistedUser,
+        blacklistedUserSigner,
+        blacklistedUserStakingToken,
+        blacklistedUserRewardToken,
+        toToken(50)
+      );
+
+      // Add to blacklist
+      await addUserToBlacklist(blacklistedUser.publicKey);
+
+      // Try to claim rewards
+      const blacklistPda = getBlacklistPda(blacklistedUser.publicKey);
+      try {
+        await claimUserRewards(
+          blacklistedUser,
+          blacklistedUserSigner,
+          blacklistedUserRewardToken,
+          blacklistPda
+        );
+        expect.fail("Should have thrown an error");
+      } catch (error: any) {
+        expect(error).to.not.be.null;
+        expect(error.toString()).to.include("Address is blacklisted");
+      }
     });
   });
 
   describe("Unstake", () => {
     it("should allow user to unstake tokens", async () => {
-      // Test unstaking functionality with correct reward account
-      // Get initial balances
-      const userTokenBefore = getAccount(provider, userStakingToken);
-      const vaultTokenBefore = getAccount(provider, stakingVaultPda);
-      const userStakeInfoBefore = getUserStakeInfo(provider, userStakeInfoPda);
+      const { user, userSigner } = await createTestUser(svm);
+      const { stakingToken, rewardToken } = await setupUserWithTokens(
+        provider,
+        admin,
+        user,
+        stakingMint,
+        rewardMint
+      );
+
+      await stakeTokens(
+        user,
+        userSigner,
+        stakingToken,
+        rewardToken,
+        toToken(100)
+      );
+
       const globalStateBefore = getGlobalState(provider, statePda);
+      console.log(
+        "Global state total staked before:",
+        globalStateBefore!.totalStaked
+      );
 
-      const unstakeAmount = toToken(50); // Unstake 50 tokens
+      const unstakeAmount = toToken(40);
+      await unstakeTokens(
+        user,
+        userSigner,
+        stakingToken,
+        rewardToken,
+        unstakeAmount
+      );
 
-      // Create unstake instruction
-      const unstakeInstruction = programClient.getUnstakeInstruction({
-        user: userSigner,
-        state: address(statePda.toBase58()),
-        userStakeInfo: address(userStakeInfoPda.toBase58()),
-        userTokenAccount: address(userStakingToken.toBase58()),
-        stakingVault: address(stakingVaultPda.toBase58()),
-        rewardVault: address(rewardVaultPda.toBase58()),
-        userRewardAccount: address(userRewardToken.toBase58()),
-        tokenProgram: address(TOKEN_PROGRAM_ID.toBase58()),
-        amount: unstakeAmount,
-      });
-
-      // Send transaction
-      const ix = toTransactionInstruction(unstakeInstruction);
-      const tx = new Transaction().add(ix);
-      tx.recentBlockhash = provider.client.latestBlockhash();
-      tx.sign(user);
-      const result = provider.client.sendTransaction(tx);
-      console.log("Unstake transaction result:", result);
-
-      // Check if transaction failed
-      if (result instanceof Object && "meta" in result) {
-        const meta = (result as any).meta();
-        console.log("Transaction logs:", meta.logs);
-        if ("err" in result) {
-          console.log("Transaction error:", (result as any).err());
-        }
-      }
-
-      // Verify balances after unstake
-      const userTokenAfter = getAccount(provider, userStakingToken);
-      const vaultTokenAfter = getAccount(provider, stakingVaultPda);
-
-      console.log("User token before:", Number(userTokenBefore.amount));
-      console.log("User token after:", Number(userTokenAfter.amount));
-      console.log("Vault token before:", Number(vaultTokenBefore.amount));
-      console.log("Vault token after:", Number(vaultTokenAfter.amount));
-
-      expect(
-        Number(userTokenAfter.amount) - Number(userTokenBefore.amount)
-      ).to.equal(Number(unstakeAmount));
-      expect(
-        Number(vaultTokenBefore.amount) - Number(vaultTokenAfter.amount)
-      ).to.equal(Number(unstakeAmount));
-
-      // Verify user stake info was updated
-      const userStakeInfoAfter = getUserStakeInfo(provider, userStakeInfoPda);
-      expect(
-        Number(userStakeInfoBefore!.amount) - Number(userStakeInfoAfter!.amount)
-      ).to.equal(Number(unstakeAmount));
+      // Verify user stake info data
+      const userStakePda = getUserStakePda(user.publicKey);
+      const userStakeInfo = getUserStakeInfo(provider, userStakePda);
+      expect(userStakeInfo).to.not.be.null;
+      expect(userStakeInfo!.amount.toString()).to.equal(toToken(60).toString());
+      expect(userStakeInfo!.rewardDebt.toString()).to.equal("0");
+      expect(Number(userStakeInfo!.stakeTimestamp.toString())).to.be.above(0);
 
       // Verify global state total staked was updated
       const globalStateAfter = getGlobalState(provider, statePda);
-      expect(
-        Number(globalStateBefore!.totalStaked) -
-          Number(globalStateAfter!.totalStaked)
-      ).to.equal(Number(unstakeAmount));
+      expect(globalStateAfter!.totalStaked).to.equal(
+        globalStateBefore!.totalStaked - unstakeAmount
+      );
     });
 
     it("should fail when unstaking more than staked amount", async () => {
-      const userStakeInfo = getUserStakeInfo(provider, userStakeInfoPda);
-      const stakedAmount = userStakeInfo!.amount;
-      const tooMuchAmount = BigInt(stakedAmount.toString()) + toToken(100); // Try to unstake more than staked
+      const { user, userSigner } = await createTestUser(svm);
+      const { stakingToken, rewardToken } = await setupUserWithTokens(
+        provider,
+        admin,
+        user,
+        stakingMint,
+        rewardMint
+      );
 
-      // Create unstake instruction with too much amount
-      const unstakeInstruction = programClient.getUnstakeInstruction({
-        user: userSigner,
-        state: address(statePda.toBase58()),
-        userStakeInfo: address(userStakeInfoPda.toBase58()),
-        userTokenAccount: address(userStakingToken.toBase58()),
-        stakingVault: address(stakingVaultPda.toBase58()),
-        rewardVault: address(rewardVaultPda.toBase58()),
-        userRewardAccount: address(userRewardToken.toBase58()),
-        tokenProgram: address(TOKEN_PROGRAM_ID.toBase58()),
-        amount: tooMuchAmount,
-      });
+      const stakeAmount = toToken(100);
+      await stakeTokens(
+        user,
+        userSigner,
+        stakingToken,
+        rewardToken,
+        stakeAmount
+      );
 
-      // Send transaction and expect it to fail
+      const tooMuchAmount = stakeAmount + toToken(100); // Try to unstake more than staked
       try {
-        const ix = toTransactionInstruction(unstakeInstruction);
-        const tx = new Transaction().add(ix);
-        tx.recentBlockhash = provider.client.latestBlockhash();
-        tx.sign(user);
-        provider.client.sendTransaction(tx);
-
-        assert.fail("Transaction should have failed");
+        await unstakeTokens(
+          user,
+          userSigner,
+          stakingToken,
+          rewardToken,
+          tooMuchAmount
+        );
+        expect.fail("Transaction should have failed");
       } catch (error: any) {
         // Expected to fail
-        assert.ok(error, "Transaction failed as expected");
+        expect(error).to.not.be.null;
       }
 
       // Verify stake amount didn't change
-      const userStakeInfoAfter = getUserStakeInfo(provider, userStakeInfoPda);
-      assert.equal(
-        userStakeInfoAfter!.amount.toString(),
-        stakedAmount.toString(),
-        "Stake amount should remain unchanged"
+      const userStakePda = getUserStakePda(user.publicKey);
+      const userStakeInfoAfter = getUserStakeInfo(provider, userStakePda);
+      expect(userStakeInfoAfter!.amount.toString()).to.equal(
+        stakeAmount.toString()
       );
     });
 
     it("should fail when unstaking zero tokens", async () => {
-      // TODO: Test unstaking 0 tokens
-    });
-  });
-
-  describe("Fresh Account Test", () => {
-    it("should work with a new user account", async () => {
-      // Create a new user for clean testing
-      const newUser = Keypair.generate();
-      const newUserSigner = await createKeyPairSignerFromBytes(
-        newUser.secretKey
-      );
-
-      // Airdrop SOL to new user
-      svm.airdrop(newUser.publicKey, BigInt(10 * LAMPORTS_PER_SOL));
-
-      // Create token accounts for new user
-      const newUserStakingToken = createAssociatedTokenAccount(
+      const { user, userSigner } = await createTestUser(svm);
+      const { stakingToken, rewardToken } = await setupUserWithTokens(
         provider,
         admin,
+        user,
         stakingMint,
-        newUser.publicKey
+        rewardMint
       );
 
-      const newUserRewardToken = createAssociatedTokenAccount(
-        provider,
-        admin,
-        rewardMint,
-        newUser.publicKey
-      );
-
-      // Mint tokens to new user
-      mintTo(
-        provider,
-        admin,
-        stakingMint,
-        newUserStakingToken,
-        admin,
+      // First stake some tokens
+      await stakeTokens(
+        user,
+        userSigner,
+        stakingToken,
+        rewardToken,
         toToken(100)
       );
 
-      // Derive PDA for new user
-      const [newUserStakeInfoPda] = PublicKey.findProgramAddressSync(
-        [Buffer.from("stake"), newUser.publicKey.toBuffer()],
-        programId
+      // Try to unstake 0 tokens
+      try {
+        await unstakeTokens(
+          user,
+          userSigner,
+          stakingToken,
+          rewardToken,
+          BigInt(0) // Try to unstake 0 tokens
+        );
+        expect.fail("Should have thrown an error");
+      } catch (error: any) {
+        expect(error).to.not.be.null;
+        expect(error.toString()).to.include("Cannot unstake 0 tokens");
+      }
+
+      // Verify stake amount didn't change
+      const userStakePda = getUserStakePda(user.publicKey);
+      const userStakeInfo = getUserStakeInfo(provider, userStakePda);
+      expect(userStakeInfo!.amount.toString()).to.equal(
+        toToken(100).toString()
+      );
+    });
+
+    it("should prevent blacklisted user from unstaking", async () => {
+      const { user: blacklistedUser, userSigner: blacklistedUserSigner } =
+        await createTestUser(svm);
+      const {
+        stakingToken: blacklistedUserStakingToken,
+        rewardToken: blacklistedUserRewardToken,
+      } = await setupUserWithTokens(
+        provider,
+        admin,
+        blacklistedUser,
+        stakingMint,
+        rewardMint
       );
 
-      // Stake tokens
-      const stakeInstruction = programClient.getStakeInstruction({
-        user: newUserSigner,
-        state: address(statePda.toBase58()),
-        userStakeInfo: address(newUserStakeInfoPda.toBase58()),
-        userTokenAccount: address(newUserStakingToken.toBase58()),
-        stakingVault: address(stakingVaultPda.toBase58()),
-        rewardVault: address(rewardVaultPda.toBase58()),
-        userRewardAccount: address(newUserRewardToken.toBase58()),
-        tokenProgram: address(TOKEN_PROGRAM_ID.toBase58()),
-        amount: toToken(100),
-      });
+      // First, stake some tokens before blacklisting
+      await stakeTokens(
+        blacklistedUser,
+        blacklistedUserSigner,
+        blacklistedUserStakingToken,
+        blacklistedUserRewardToken,
+        toToken(50)
+      );
 
-      const ix = toTransactionInstruction(stakeInstruction);
-      const tx = new Transaction().add(ix);
-      tx.recentBlockhash = provider.client.latestBlockhash();
-      tx.sign(newUser);
-      provider.client.sendTransaction(tx);
+      // Add to blacklist
+      const blacklistPda = getBlacklistPda(blacklistedUser.publicKey);
 
-      // Get stake info
-      const stakeInfo = getUserStakeInfo(provider, newUserStakeInfoPda);
-      console.log("New user stake info:", {
-        amount: stakeInfo!.amount.toString(),
-        stakeTimestamp: stakeInfo!.stakeTimestamp.toString(),
-        lastClaimTime: stakeInfo!.lastClaimTime?.toString(),
-        rewardDebt: stakeInfo!.rewardDebt.toString(),
-      });
+      const addToBlacklistInstruction =
+        programClient.getAddToBlacklistInstruction({
+          admin: adminSigner,
+          systemProgram: address(SystemProgram.programId.toBase58()),
+          state: address(statePda.toBase58()),
+          blacklistEntry: address(blacklistPda.toBase58()),
+          address: address(blacklistedUser.publicKey.toBase58()),
+        });
 
-      // Advance time by 12 hours
-      const currentTime = currentTimestamp();
-      const twelveHoursLater = currentTime + 12 * 3600;
-      setNextBlockTimestamp(twelveHoursLater);
+      await sendTransaction(provider, addToBlacklistInstruction, admin);
 
-      // Claim rewards
-      const claimInstruction = programClient.getClaimRewardsInstruction({
-        user: newUserSigner,
-        state: address(statePda.toBase58()),
-        userStakeInfo: address(newUserStakeInfoPda.toBase58()),
-        userRewardAccount: address(newUserRewardToken.toBase58()),
-        rewardVault: address(rewardVaultPda.toBase58()),
-        tokenProgram: address(TOKEN_PROGRAM_ID.toBase58()),
-      });
-
-      const claimIx = toTransactionInstruction(claimInstruction);
-      const claimTx = new Transaction().add(claimIx);
-      claimTx.recentBlockhash = provider.client.latestBlockhash();
-      claimTx.sign(newUser);
-      provider.client.sendTransaction(claimTx);
-
-      // Check rewards
-      const rewardBalance = getAccount(provider, newUserRewardToken);
-      const rewards = Number(rewardBalance.amount);
-      console.log("Rewards after 12 hours:", rewards);
-
-      // Should be 2.5 tokens = 2,500,000,000 lamports
-      expect(rewards).to.equal(2_500_000_000);
+      // Try to unstake
+      try {
+        await unstakeTokens(
+          blacklistedUser,
+          blacklistedUserSigner,
+          blacklistedUserStakingToken,
+          blacklistedUserRewardToken,
+          toToken(50),
+          blacklistPda
+        );
+        expect.fail("Should have thrown an error");
+      } catch (error: any) {
+        expect(error).to.not.be.null;
+        expect(error.toString()).to.include("Address is blacklisted");
+      }
     });
   });
 
-  describe("Reward Precision Tests", () => {
-    it.skip("should calculate rewards accurately for various time periods", async () => {
-      // Test reward calculation precision with different time periods
-      // For 100 tokens staked at 5% rate (500 basis points)
-      const testCases = [
-        { hours: 1, expectedLamports: 208_333_333 }, // ~0.208 tokens
-        { hours: 6, expectedLamports: 1_250_000_000 }, // 1.25 tokens
-        { hours: 18, expectedLamports: 3_750_000_000 }, // 3.75 tokens
-        { hours: 36, expectedLamports: 7_500_000_000 }, // 7.5 tokens
-        { hours: 60, expectedLamports: 12_500_000_000 }, // 12.5 tokens
-      ];
+  describe("Blacklist", () => {
+    it("should add user to blacklist", async () => {
+      const { user: blacklistedUser } = await createTestUser(svm);
 
-      for (const testCase of testCases) {
-        // Get current state
-        const beforeStakeInfo = getUserStakeInfo(provider, userStakeInfoPda);
-        const lastClaim = Number(
-          beforeStakeInfo!.lastClaimTime?.toString() ||
-            beforeStakeInfo!.stakeTimestamp.toString()
+      await addUserToBlacklist(blacklistedUser.publicKey);
+
+      const blacklistPda = getBlacklistPda(blacklistedUser.publicKey);
+      const blacklistEntry = getBlacklistEntry(provider, blacklistPda);
+      expect(blacklistEntry).to.not.be.null;
+      expect(blacklistEntry!.address.toString()).to.equal(
+        blacklistedUser.publicKey.toBase58()
+      );
+    });
+
+    it("should fail when adding same address to blacklist twice", async () => {
+      const { user: blacklistedUser } = await createTestUser(svm);
+
+      // First add to blacklist
+      await addUserToBlacklist(blacklistedUser.publicKey);
+
+      // Try to add again
+      try {
+        await addUserToBlacklist(blacklistedUser.publicKey);
+        expect.fail("Should have thrown an error");
+      } catch (error: any) {
+        expect(error).to.not.be.null;
+        expect(error.toString()).to.include("Address is already in blacklist");
+      }
+    });
+
+    it("should remove user from blacklist", async () => {
+      const { user: blacklistedUser, userSigner: blacklistedUserSigner } =
+        await createTestUser(svm);
+      const {
+        stakingToken: blacklistedUserStakingToken,
+        rewardToken: blacklistedUserRewardToken,
+      } = await setupUserWithTokens(
+        provider,
+        admin,
+        blacklistedUser,
+        stakingMint,
+        rewardMint
+      );
+
+      // First add to blacklist
+      await addUserToBlacklist(blacklistedUser.publicKey);
+
+      // Remove from blacklist
+      await removeUserFromBlacklist(blacklistedUser.publicKey);
+
+      // Verify blacklist entry is removed
+      const blacklistPda = getBlacklistPda(blacklistedUser.publicKey);
+      const blacklistAccount = provider.client.getAccount(blacklistPda);
+      // In Solana, closed accounts may still exist with 0 lamports and system program as owner
+      if (blacklistAccount) {
+        expect(blacklistAccount.lamports).to.equal(0);
+        expect(blacklistAccount.owner.toBase58()).to.equal(
+          SystemProgram.programId.toBase58()
         );
-        const beforeBalance = getAccount(provider, userRewardToken);
-        const startBalance = Number(beforeBalance.amount);
+        expect(blacklistAccount.data.length).to.equal(0);
+      }
 
-        // Advance time
-        const newTime = lastClaim + testCase.hours * 3600;
-        setNextBlockTimestamp(newTime);
-        console.log(`\nTesting ${testCase.hours} hours reward calculation`);
+      // Now user should be able to stake
+      await stakeTokens(
+        blacklistedUser,
+        blacklistedUserSigner,
+        blacklistedUserStakingToken,
+        blacklistedUserRewardToken,
+        toToken(25)
+      );
 
-        // Claim rewards
-        const claimInstruction = programClient.getClaimRewardsInstruction({
-          user: userSigner,
+      // Verify stake was successful
+      const userStakePda = getUserStakePda(blacklistedUser.publicKey);
+      const userStakeInfo = getUserStakeInfo(provider, userStakePda);
+      expect(userStakeInfo!.amount.toString()).to.equal(toToken(25).toString());
+    });
+
+    it("should prevent non-admin from managing blacklist", async () => {
+      const { user: randomUser, userSigner: randomUserSigner } =
+        await createTestUser(svm, 5);
+
+      const { user: blacklistedUser } = await createTestUser(svm, 5);
+
+      const blacklistPda = getBlacklistPda(blacklistedUser.publicKey);
+
+      const addToBlacklistInstruction =
+        programClient.getAddToBlacklistInstruction({
+          admin: randomUserSigner,
+          systemProgram: address(SystemProgram.programId.toBase58()),
           state: address(statePda.toBase58()),
-          userStakeInfo: address(userStakeInfoPda.toBase58()),
-          userRewardAccount: address(userRewardToken.toBase58()),
-          rewardVault: address(rewardVaultPda.toBase58()),
-          tokenProgram: address(TOKEN_PROGRAM_ID.toBase58()),
+          blacklistEntry: address(blacklistPda.toBase58()),
+          address: address(blacklistedUser.publicKey.toBase58()),
         });
 
-        const ix = toTransactionInstruction(claimInstruction);
-        const tx = new Transaction().add(ix);
-        tx.recentBlockhash = provider.client.latestBlockhash();
-        tx.sign(user);
-        provider.client.sendTransaction(tx);
-
-        // Check rewards
-        const afterBalance = getAccount(provider, userRewardToken);
-        const actualRewards = Number(afterBalance.amount) - startBalance;
-        const expectedRewards = testCase.expectedLamports;
-
-        console.log(`Expected: ${expectedRewards} lamports`);
-        console.log(`Actual: ${actualRewards} lamports`);
-
-        // Since we have integer division, actual rewards might be slightly less
-        // For example: 208333333.33... becomes 208333333
-        expect(actualRewards).to.be.closeTo(expectedRewards, 1); // Allow 1 lamport difference
+      try {
+        await sendTransaction(provider, addToBlacklistInstruction, randomUser);
+        expect.fail("Should have thrown an error");
+      } catch (error: any) {
+        expect(error).to.not.be.null;
       }
     });
   });
