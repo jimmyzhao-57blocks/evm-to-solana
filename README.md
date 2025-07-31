@@ -13,6 +13,7 @@ evm-to-solana/
 ## Features
 
 Both versions implement the following core functionality:
+
 - Stake tokens to earn rewards
 - Flexible unstaking (partial or full)
 - Claim rewards separately
@@ -22,11 +23,13 @@ Both versions implement the following core functionality:
 ## Tech Stack
 
 ### EVM Version
+
 - Solidity 0.8.20+
 - Foundry framework
 - OpenZeppelin contracts library
 
 ### Solana Version
+
 - Rust + Anchor framework
 - SPL Token program
 - PDA (Program Derived Address) account model
@@ -34,14 +37,15 @@ Both versions implement the following core functionality:
 ## Quick Start
 
 For detailed setup and deployment instructions, please refer to the README files in each subdirectory:
+
 - [EVM Staking Contract](./evm-staking/README.md)
 - [Solana Staking Program](./solana-staking/README.md)
 
 ## Key Differences
 
-| Feature | EVM | Solana |
-|---------|-----|---------|
-| Data Storage | Contract state variables | Separate accounts |
-| Account Model | Account balance model | UTXO-like account model |
-| Transaction Fees | Gas fees | Fixed fees + rent |
-| Program Calls | Internal/external calls | CPI (Cross-Program Invocation) |
+| Feature          | EVM                      | Solana                         |
+| ---------------- | ------------------------ | ------------------------------ |
+| Data Storage     | Contract state variables | Separate accounts              |
+| Account Model    | Account balance model    | UTXO-like account model        |
+| Transaction Fees | Gas fees                 | Fixed fees + rent              |
+| Program Calls    | Internal/external calls  | CPI (Cross-Program Invocation) |

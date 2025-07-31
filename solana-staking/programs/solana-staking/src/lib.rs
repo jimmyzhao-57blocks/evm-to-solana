@@ -9,7 +9,7 @@ pub mod utils;
 
 use instructions::*;
 
-declare_id!("4XKoqimJG7svD8vnTb5N2h24rFSsA57LnBckBhxJ2q8M");
+declare_id!("1gGFthN24CB1p2LEvmhpnJVHAHm3koZDQnHgDoe6Ra2");
 
 #[program]
 pub mod solana_staking {

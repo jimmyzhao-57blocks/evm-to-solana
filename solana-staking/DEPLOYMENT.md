@@ -30,6 +30,7 @@ solana config get
 ```
 
 Expected output should show:
+
 - RPC URL matching your target network
 - Valid keypair path
 - Commitment level (recommended: confirmed)
@@ -41,6 +42,7 @@ solana balance
 ```
 
 For devnet, airdrop SOL if needed:
+
 ```bash
 solana airdrop 2
 ```
@@ -73,6 +75,7 @@ anchor deploy --provider.cluster devnet
 ```
 
 For mainnet:
+
 ```bash
 anchor deploy --provider.cluster mainnet
 ```
@@ -118,6 +121,7 @@ solana program show <PROGRAM_ID>
 ```
 
 This should display:
+
 - Program ID
 - Authority (upgrade authority)
 - Last deployment slot
@@ -132,10 +136,12 @@ anchor idl fetch <PROGRAM_ID> --provider.cluster devnet
 ### 3. Check in Explorer
 
 Visit Solana Explorer to verify your deployment:
+
 - Devnet: https://explorer.solana.com/?cluster=devnet
 - Mainnet: https://explorer.solana.com/
 
 Search for your program ID. You should see:
+
 - Program details
 - IDL tab with your interface
 - Recent transactions
@@ -145,6 +151,7 @@ Search for your program ID. You should see:
 ### Data Migration
 
 When upgrading programs with existing state:
+
 - Account structures can only grow (add fields at the end)
 - Never remove or reorder existing fields
 - Test migrations thoroughly on devnet first
@@ -158,6 +165,7 @@ solana program set-upgrade-authority <PROGRAM_ID> --new-upgrade-authority <NEW_A
 ```
 
 To make a program immutable (remove upgrade authority):
+
 ```bash
 solana program set-upgrade-authority <PROGRAM_ID> --final
 ```

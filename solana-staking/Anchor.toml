@@ -6,10 +6,10 @@ resolution = true
 skip-lint = false
 
 [programs.localnet]
-solana_staking = "4XKoqimJG7svD8vnTb5N2h24rFSsA57LnBckBhxJ2q8M"
+solana_staking = "1gGFthN24CB1p2LEvmhpnJVHAHm3koZDQnHgDoe6Ra2"
 
 [programs.devnet]
-solana_staking = "4XKoqimJG7svD8vnTb5N2h24rFSsA57LnBckBhxJ2q8M"
+solana_staking = "1gGFthN24CB1p2LEvmhpnJVHAHm3koZDQnHgDoe6Ra2"
 
 [registry]
 url = "https://api.apr.dev"
