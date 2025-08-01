@@ -5,14 +5,18 @@
     "lint:fix": "prettier */*.js \"*/**/*{.js,.ts}\" -w",
     "lint": "prettier */*.js \"*/**/*{.js,.ts}\" --check",
     "show-versions": "bash show-versions.sh",
-    "regenerate-client": "anchor build && npx tsx create-codama-client.ts"
+    "regenerate-client": "anchor build && npx tsx create-codama-client.ts",
+    "verify": "npx tsx scripts/verify-deployment.ts",
+    "list": "npx tsx scripts/list-deployments.ts"
   },
   "dependencies": {
     "@coral-xyz/anchor": "^0.31.1",
     "@solana/kit": "^2.3.0",
     "@solana/spl-token": "^0.4.13",
     "@solana/web3.js": "^1.98.2",
+    "@types/bn.js": "^5.2.0",
     "anchor-litesvm": "^0.1.2",
+    "bn.js": "^5.2.2",
     "litesvm": "^0.2.0"
   },
   "devDependencies": {

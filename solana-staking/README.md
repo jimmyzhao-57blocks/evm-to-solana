@@ -64,6 +64,54 @@ Deploy to Devnet:
 anchor deploy --provider.cluster devnet
 ```
 
+For detailed deployment instructions, see [DEPLOYMENT.md](./DEPLOYMENT.md).
+
+## Verification and Testing
+
+After deployment, you can verify your contract functionality using the provided scripts:
+
+### List All Deployments
+```bash
+npm run list
+```
+Shows all deployed instances with their token addresses and current state.
+
+### Verify Contract Functionality
+```bash
+# Use existing deployment (default)
+npm run verify
+
+# Create new tokens and deployment
+npm run verify -- --new-tokens
+
+# Use specific staking token
+npm run verify -- --staking-token <TOKEN_ADDRESS>
+
+# Enable verbose logging
+npm run verify -- --verbose
+```
+
+The verification script will:
+1. Check for existing deployments or create new ones
+2. Create/reuse test tokens
+3. Test all contract methods:
+   - Initialize (if new deployment)
+   - Stake tokens
+   - Claim rewards
+   - Unstake tokens (partial)
+   - Blacklist operations (admin only)
+4. Display final balances and state
+
+### Script Options
+- `--new-tokens`: Forces creation of new tokens instead of reusing existing ones
+- `--staking-token <ADDRESS>`: Use a specific staking token deployment
+- `--verbose`: Show detailed debug information
+
+### Best Practices
+1. Run `npm run list` after first deployment to save token addresses
+2. Use `--new-tokens` sparingly to avoid creating unnecessary tokens
+3. The script handles existing accounts gracefully and can be run multiple times
+
 ## Key Differences from EVM
 
 - **Account Model**: Data stored in separate accounts, not within the program
