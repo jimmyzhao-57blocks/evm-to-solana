@@ -2,7 +2,7 @@
 pragma solidity ^0.8.20;
 
 import "forge-std/Script.sol";
-import "../src/MyToken.sol";
+import "../src/RestrictedStakingToken.sol";
 import "../src/RewardToken.sol";
 import "../src/Staking.sol";
 
@@ -12,15 +12,20 @@ contract DeployScript is Script {
         vm.startBroadcast(deployerPrivateKey);
         
         // Deploy tokens
-        MyToken myToken = new MyToken();
-        console.log("MyToken deployed at:", address(myToken));
+        RestrictedStakingToken stakingToken = new RestrictedStakingToken("Restricted Staking Token", "RST");
+        console.log("RestrictedStakingToken deployed at:", address(stakingToken));
         
         RewardToken rewardToken = new RewardToken();
         console.log("RewardToken deployed at:", address(rewardToken));
         
         // Deploy staking contract
-        Staking staking = new Staking(address(myToken), address(rewardToken));
+        Staking staking = new Staking(address(stakingToken), address(rewardToken));
         console.log("Staking contract deployed at:", address(staking));
+        
+        // Mint initial staking tokens to deployer (optional - for testing)
+        uint256 stakingSupply = 1000000 * 10**18; // 1M tokens
+        stakingToken.mint(msg.sender, stakingSupply);
+        console.log("Minted", stakingSupply / 10**18, "staking tokens to deployer");
         
         // Transfer initial reward tokens to staking contract
         uint256 rewardSupply = 500000 * 10**18; // 500k tokens for rewards
@@ -35,7 +40,7 @@ contract DeployScript is Script {
         
         // Log deployment summary
         console.log("\n=== Deployment Summary ===");
-        console.log("MyToken:", address(myToken));
+        console.log("RestrictedStakingToken:", address(stakingToken));
         console.log("RewardToken:", address(rewardToken));
         console.log("Staking:", address(staking));
         console.log("========================\n");
