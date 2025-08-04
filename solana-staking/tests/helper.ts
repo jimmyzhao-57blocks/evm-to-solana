@@ -238,17 +238,17 @@ export function getBlacklistEntry(
 }
 
 // PDA helper functions
-export function getUserStakePda(userPubkey: PublicKey): PublicKey {
+export function getUserStakePda(statePda: PublicKey, userPubkey: PublicKey): PublicKey {
   const [pda] = PublicKey.findProgramAddressSync(
-    [Buffer.from("stake"), userPubkey.toBuffer()],
+    [Buffer.from("stake"), statePda.toBuffer(), userPubkey.toBuffer()],
     programId
   );
   return pda;
 }
 
-export function getBlacklistPda(userPubkey: PublicKey): PublicKey {
+export function getBlacklistPda(statePda: PublicKey, userPubkey: PublicKey): PublicKey {
   const [pda] = PublicKey.findProgramAddressSync(
-    [Buffer.from("blacklist"), userPubkey.toBuffer()],
+    [Buffer.from("blacklist"), statePda.toBuffer(), userPubkey.toBuffer()],
     programId
   );
   return pda;

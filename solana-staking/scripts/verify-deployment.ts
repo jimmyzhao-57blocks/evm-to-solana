@@ -320,12 +320,12 @@ async function main() {
     log("\n4️⃣ Testing stake method...");
     
     const [userStakeInfoPda] = PublicKey.findProgramAddressSync(
-      [Buffer.from("stake"), wallet.publicKey.toBuffer()],
+      [Buffer.from("stake"), statePda.toBuffer(), wallet.publicKey.toBuffer()],
       program.programId
     );
 
     const [blacklistPda] = PublicKey.findProgramAddressSync(
-      [Buffer.from("blacklist"), wallet.publicKey.toBuffer()],
+      [Buffer.from("blacklist"), statePda.toBuffer(), wallet.publicKey.toBuffer()],
       program.programId
     );
 
@@ -442,7 +442,7 @@ async function main() {
       // Create a test address
       const testUser = Keypair.generate();
       const [testBlacklistPda] = PublicKey.findProgramAddressSync(
-        [Buffer.from("blacklist"), testUser.publicKey.toBuffer()],
+        [Buffer.from("blacklist"), statePda.toBuffer(), testUser.publicKey.toBuffer()],
         program.programId
       );
 

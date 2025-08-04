@@ -21,7 +21,7 @@ pub struct AddToBlacklist<'info> {
         init,
         payer = admin,
         space = 8 + BlacklistEntry::INIT_SPACE,
-        seeds = [BLACKLIST_SEED, address.as_ref()],
+        seeds = [BLACKLIST_SEED, state.key().as_ref(), address.as_ref()],
         bump
     )]
     pub blacklist_entry: Box<Account<'info, BlacklistEntry>>,

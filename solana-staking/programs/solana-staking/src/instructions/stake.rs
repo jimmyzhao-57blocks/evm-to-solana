@@ -22,7 +22,7 @@ pub struct Stake<'info> {
         init_if_needed,
         payer = user,
         space = 8 + UserStakeInfo::INIT_SPACE,
-        seeds = [STAKE_SEED, user.key().as_ref()],
+        seeds = [STAKE_SEED, state.key().as_ref(), user.key().as_ref()],
         bump
     )]
     pub user_stake_info: Box<Account<'info, UserStakeInfo>>,
@@ -57,7 +57,7 @@ pub struct Stake<'info> {
 
     /// CHECK: This account may or may not exist - we check if it exists to determine blacklist status
     #[account(
-        seeds = [BLACKLIST_SEED, user.key().as_ref()],
+        seeds = [BLACKLIST_SEED, state.key().as_ref(), user.key().as_ref()],
         bump,
     )]
     pub blacklist_entry: UncheckedAccount<'info>,

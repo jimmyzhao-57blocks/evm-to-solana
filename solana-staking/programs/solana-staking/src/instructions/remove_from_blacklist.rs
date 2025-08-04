@@ -20,7 +20,7 @@ pub struct RemoveFromBlacklist<'info> {
     #[account(
         mut,
         close = admin,
-        seeds = [BLACKLIST_SEED, address.as_ref()],
+        seeds = [BLACKLIST_SEED, state.key().as_ref(), address.as_ref()],
         bump = blacklist_entry.bump,
         constraint = blacklist_entry.address == address @ StakingError::AddressNotBlacklisted
     )]

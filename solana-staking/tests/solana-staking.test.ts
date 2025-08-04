@@ -46,9 +46,9 @@ describe("solana-staking", () => {
     amount: bigint,
     blacklistEntry: PublicKey | null = null
   ) {
-    const userStakePda = getUserStakePda(user.publicKey);
+    const userStakePda = getUserStakePda(statePda, user.publicKey);
     // Always use the user's blacklist PDA, whether it exists or not
-    const userBlacklistPda = getBlacklistPda(user.publicKey);
+    const userBlacklistPda = getBlacklistPda(statePda, user.publicKey);
     const stakeInstruction = programClient.getStakeInstruction({
       user: userSigner,
       state: address(statePda.toBase58()),
@@ -72,9 +72,9 @@ describe("solana-staking", () => {
     amount: bigint,
     blacklistEntry: PublicKey | null = null
   ) {
-    const userStakePda = getUserStakePda(user.publicKey);
+    const userStakePda = getUserStakePda(statePda, user.publicKey);
     // Always use the user's blacklist PDA, whether it exists or not
-    const userBlacklistPda = getBlacklistPda(user.publicKey);
+    const userBlacklistPda = getBlacklistPda(statePda, user.publicKey);
     const unstakeInstruction = programClient.getUnstakeInstruction({
       user: userSigner,
       state: address(statePda.toBase58()),
@@ -96,9 +96,9 @@ describe("solana-staking", () => {
     rewardToken: PublicKey,
     blacklistEntry: PublicKey | null = null
   ) {
-    const userStakePda = getUserStakePda(user.publicKey);
+    const userStakePda = getUserStakePda(statePda, user.publicKey);
     // Always use the user's blacklist PDA, whether it exists or not
-    const userBlacklistPda = getBlacklistPda(user.publicKey);
+    const userBlacklistPda = getBlacklistPda(statePda, user.publicKey);
     const claimInstruction = programClient.getClaimRewardsInstruction({
       user: userSigner,
       state: address(statePda.toBase58()),
@@ -112,7 +112,7 @@ describe("solana-staking", () => {
   }
 
   async function addUserToBlacklist(userToBlacklist: PublicKey) {
-    const blacklistPda = getBlacklistPda(userToBlacklist);
+    const blacklistPda = getBlacklistPda(statePda, userToBlacklist);
     const addToBlacklistInstruction =
       programClient.getAddToBlacklistInstruction({
         admin: adminSigner,
@@ -125,7 +125,7 @@ describe("solana-staking", () => {
   }
 
   async function removeUserFromBlacklist(userToRemove: PublicKey) {
-    const blacklistPda = getBlacklistPda(userToRemove);
+    const blacklistPda = getBlacklistPda(statePda, userToRemove);
     const removeFromBlacklistInstruction =
       programClient.getRemoveFromBlacklistInstruction({
         admin: adminSigner,
@@ -325,7 +325,7 @@ describe("solana-staking", () => {
       expect(Number(stakingVaultAccount.amount)).to.equal(Number(stakeAmount));
 
       // Verify user stake info data
-      const userStakePda = getUserStakePda(user.publicKey);
+      const userStakePda = getUserStakePda(statePda, user.publicKey);
       const userStakeInfo = getUserStakeInfo(provider, userStakePda);
       expect(userStakeInfo).to.not.be.null;
       expect(userStakeInfo!.amount.toString()).to.equal(stakeAmount.toString());
@@ -385,7 +385,7 @@ describe("solana-staking", () => {
       );
 
       // Verify first stake
-      const userStakePda = getUserStakePda(user.publicKey);
+      const userStakePda = getUserStakePda(statePda, user.publicKey);
       let userStakeInfo = getUserStakeInfo(provider, userStakePda);
       expect(userStakeInfo!.amount.toString()).to.equal(
         firstStakeAmount.toString()
@@ -444,7 +444,7 @@ describe("solana-staking", () => {
       await addUserToBlacklist(blacklistedUser.publicKey);
 
       // Try to stake - this should fail
-      const blacklistPda = getBlacklistPda(blacklistedUser.publicKey);
+      const blacklistPda = getBlacklistPda(statePda, blacklistedUser.publicKey);
       try {
         await stakeTokens(
           blacklistedUser,
@@ -482,7 +482,7 @@ describe("solana-staking", () => {
       );
 
       // Get initial state
-      const userStakePda = getUserStakePda(user.publicKey);
+      const userStakePda = getUserStakePda(statePda, user.publicKey);
       const stakeInfo = getUserStakeInfo(provider, userStakePda);
       const stakeTime = Number(stakeInfo!.stakeTimestamp.toString());
       console.log("Stake timestamp:", stakeTime);
@@ -541,7 +541,7 @@ describe("solana-staking", () => {
       );
 
       // Get initial stake timestamp
-      const userStakePda = getUserStakePda(user.publicKey);
+      const userStakePda = getUserStakePda(statePda, user.publicKey);
       const initialStakeInfo = getUserStakeInfo(provider, userStakePda);
       const originalStakeTimestamp =
         initialStakeInfo!.stakeTimestamp.toString();
@@ -598,7 +598,7 @@ describe("solana-staking", () => {
         rewardToken,
         toToken(100)
       );
-      const userStakePda = getUserStakePda(user.publicKey);
+      const userStakePda = getUserStakePda(statePda, user.publicKey);
       const testCases = [
         { hoursFromStart: 1, expectedLamports: 208_333_333 }, // ~0.208 tokens
         { hoursFromStart: 6, expectedLamports: 1_250_000_000 }, // 1.25 tokens
@@ -694,7 +694,7 @@ describe("solana-staking", () => {
       await addUserToBlacklist(blacklistedUser.publicKey);
 
       // Try to claim rewards
-      const blacklistPda = getBlacklistPda(blacklistedUser.publicKey);
+      const blacklistPda = getBlacklistPda(statePda, blacklistedUser.publicKey);
       try {
         await claimUserRewards(
           blacklistedUser,
@@ -745,7 +745,7 @@ describe("solana-staking", () => {
       );
 
       // Verify user stake info data
-      const userStakePda = getUserStakePda(user.publicKey);
+      const userStakePda = getUserStakePda(statePda, user.publicKey);
       const userStakeInfo = getUserStakeInfo(provider, userStakePda);
       expect(userStakeInfo).to.not.be.null;
       expect(userStakeInfo!.amount.toString()).to.equal(toToken(60).toString());
@@ -794,7 +794,7 @@ describe("solana-staking", () => {
       }
 
       // Verify stake amount didn't change
-      const userStakePda = getUserStakePda(user.publicKey);
+      const userStakePda = getUserStakePda(statePda, user.publicKey);
       const userStakeInfoAfter = getUserStakeInfo(provider, userStakePda);
       expect(userStakeInfoAfter!.amount.toString()).to.equal(
         stakeAmount.toString()
@@ -836,7 +836,7 @@ describe("solana-staking", () => {
       }
 
       // Verify stake amount didn't change
-      const userStakePda = getUserStakePda(user.publicKey);
+      const userStakePda = getUserStakePda(statePda, user.publicKey);
       const userStakeInfo = getUserStakeInfo(provider, userStakePda);
       expect(userStakeInfo!.amount.toString()).to.equal(
         toToken(100).toString()
@@ -867,7 +867,7 @@ describe("solana-staking", () => {
       );
 
       // Add to blacklist
-      const blacklistPda = getBlacklistPda(blacklistedUser.publicKey);
+      const blacklistPda = getBlacklistPda(statePda, blacklistedUser.publicKey);
 
       const addToBlacklistInstruction =
         programClient.getAddToBlacklistInstruction({
@@ -904,7 +904,7 @@ describe("solana-staking", () => {
 
       await addUserToBlacklist(blacklistedUser.publicKey);
 
-      const blacklistPda = getBlacklistPda(blacklistedUser.publicKey);
+      const blacklistPda = getBlacklistPda(statePda, blacklistedUser.publicKey);
       const blacklistEntry = getBlacklistEntry(provider, blacklistPda);
       expect(blacklistEntry).to.not.be.null;
       expect(blacklistEntry!.address.toString()).to.equal(
@@ -949,7 +949,7 @@ describe("solana-staking", () => {
       await removeUserFromBlacklist(blacklistedUser.publicKey);
 
       // Verify blacklist entry is removed
-      const blacklistPda = getBlacklistPda(blacklistedUser.publicKey);
+      const blacklistPda = getBlacklistPda(statePda, blacklistedUser.publicKey);
       const blacklistAccount = provider.client.getAccount(blacklistPda);
       // In Solana, closed accounts may still exist with 0 lamports and system program as owner
       if (blacklistAccount) {
@@ -970,7 +970,7 @@ describe("solana-staking", () => {
       );
 
       // Verify stake was successful
-      const userStakePda = getUserStakePda(blacklistedUser.publicKey);
+      const userStakePda = getUserStakePda(statePda, blacklistedUser.publicKey);
       const userStakeInfo = getUserStakeInfo(provider, userStakePda);
       expect(userStakeInfo!.amount.toString()).to.equal(toToken(25).toString());
     });
@@ -981,7 +981,7 @@ describe("solana-staking", () => {
 
       const { user: blacklistedUser } = await createTestUser(svm, 5);
 
-      const blacklistPda = getBlacklistPda(blacklistedUser.publicKey);
+      const blacklistPda = getBlacklistPda(statePda, blacklistedUser.publicKey);
 
       const addToBlacklistInstruction =
         programClient.getAddToBlacklistInstruction({

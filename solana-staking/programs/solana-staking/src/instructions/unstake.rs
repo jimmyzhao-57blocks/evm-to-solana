@@ -20,7 +20,7 @@ pub struct Unstake<'info> {
 
     #[account(
         mut,
-        seeds = [STAKE_SEED, user.key().as_ref()],
+        seeds = [STAKE_SEED, state.key().as_ref(), user.key().as_ref()],
         bump = user_stake_info.bump
     )]
     pub user_stake_info: Box<Account<'info, UserStakeInfo>>,
@@ -55,7 +55,7 @@ pub struct Unstake<'info> {
 
     /// CHECK: This account may or may not exist - we check if it exists to determine blacklist status
     #[account(
-        seeds = [BLACKLIST_SEED, user.key().as_ref()],
+        seeds = [BLACKLIST_SEED, state.key().as_ref(), user.key().as_ref()],
         bump,
     )]
     pub blacklist_entry: UncheckedAccount<'info>,
