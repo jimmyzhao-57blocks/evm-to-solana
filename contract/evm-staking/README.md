@@ -14,7 +14,9 @@ A Token Staking contract implementation using Foundry framework. Users can stake
 1. Install dependencies:
 
 ```bash
-forge install
+# Clone required libraries
+git clone https://github.com/foundry-rs/forge-std lib/forge-std
+git clone --branch v4.9.6 https://github.com/OpenZeppelin/openzeppelin-contracts lib/openzeppelin-contracts
 ```
 
 2. Copy environment variables:

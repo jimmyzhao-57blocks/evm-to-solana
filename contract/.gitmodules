@@ -1,3 +1,0 @@
-[submodule "evm-staking/lib/forge-std"]
-	path = evm-staking/lib/forge-std
-	url = https://github.com/foundry-rs/forge-std

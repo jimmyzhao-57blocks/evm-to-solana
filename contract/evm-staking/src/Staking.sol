@@ -36,10 +36,15 @@ contract Staking is ReentrancyGuard, Ownable {
 
     function stake(uint256 amount) external nonReentrant {
         require(amount > 0, "Cannot stake 0");
-        
+
         // Check if user is blacklisted
-        RestrictedStakingToken restrictedToken = RestrictedStakingToken(address(stakingToken));
-        require(!restrictedToken.isBlacklisted(msg.sender), "Address is blacklisted");
+        RestrictedStakingToken restrictedToken = RestrictedStakingToken(
+            address(stakingToken)
+        );
+        require(
+            !restrictedToken.isBlacklisted(msg.sender),
+            "Address is blacklisted"
+        );
 
         // Calculate and claim any pending rewards first
         if (stakes[msg.sender].amount > 0) {
@@ -67,10 +72,15 @@ contract Staking is ReentrancyGuard, Ownable {
             stakes[msg.sender].amount >= amount,
             "Insufficient staked amount"
         );
-        
+
         // Check if user is blacklisted
-        RestrictedStakingToken restrictedToken = RestrictedStakingToken(address(stakingToken));
-        require(!restrictedToken.isBlacklisted(msg.sender), "Address is blacklisted");
+        RestrictedStakingToken restrictedToken = RestrictedStakingToken(
+            address(stakingToken)
+        );
+        require(
+            !restrictedToken.isBlacklisted(msg.sender),
+            "Address is blacklisted"
+        );
 
         // Calculate and claim any pending rewards first
         _claimRewards();
@@ -94,9 +104,14 @@ contract Staking is ReentrancyGuard, Ownable {
 
     function claimRewards() external nonReentrant {
         // Check if user is blacklisted
-        RestrictedStakingToken restrictedToken = RestrictedStakingToken(address(stakingToken));
-        require(!restrictedToken.isBlacklisted(msg.sender), "Address is blacklisted");
-        
+        RestrictedStakingToken restrictedToken = RestrictedStakingToken(
+            address(stakingToken)
+        );
+        require(
+            !restrictedToken.isBlacklisted(msg.sender),
+            "Address is blacklisted"
+        );
+
         _claimRewards();
     }
 
