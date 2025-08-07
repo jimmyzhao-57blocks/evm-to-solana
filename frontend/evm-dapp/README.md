@@ -73,6 +73,11 @@ src/
 
 ## Customization
 
+### Contract interaction
+
+- Staking Token: 0xe0E6dcB456e4A290Cd01d5023Ac41BCb0c578536
+- Reward Token: 0x1470f2b1F47bEF3D9957499Fc9F582bfC075583f
+
 ### Adding Smart Contract Integration
 
 Add actual smart contract interaction logic in the `handleStake` and `handleUnstake` functions in `src/pages/index.tsx`:
