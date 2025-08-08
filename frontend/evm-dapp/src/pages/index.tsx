@@ -2,9 +2,11 @@ import { ConnectButton } from "@rainbow-me/rainbowkit";
 import type { NextPage } from "next";
 import Head from "next/head";
 import { useState } from "react";
+import { useAccount } from "wagmi";
 import styles from "../styles/Home.module.css";
 import StakingActions from "../components/StakingActions";
 import HistoryTable from "../components/HistoryTable";
+import "dotenv/config";
 
 // Mock history records data
 const mockHistoryRecords = [
@@ -34,8 +36,14 @@ const mockHistoryRecords = [
 const Home: NextPage = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [historyRecords, setHistoryRecords] = useState(mockHistoryRecords);
+  const { address, isConnected } = useAccount();
 
   const handleStake = async (amount: string) => {
+    if (!isConnected) {
+      alert("Please connect your wallet first");
+      return;
+    }
+
     setIsLoading(true);
     try {
       // Add actual staking logic here
@@ -62,6 +70,11 @@ const Home: NextPage = () => {
   };
 
   const handleUnstake = async (amount: string) => {
+    if (!isConnected) {
+      alert("Please connect your wallet first");
+      return;
+    }
+
     setIsLoading(true);
     try {
       // Add actual unstaking logic here
@@ -111,15 +124,33 @@ const Home: NextPage = () => {
           </div>
         </header>
 
-        {/* Staking Operations Section */}
-        <StakingActions
-          onStake={handleStake}
-          onUnstake={handleUnstake}
-          isLoading={isLoading}
-        />
+        {/* Show wallet connection message if not connected */}
+        {!isConnected && (
+          <div className={styles.walletMessage}>
+            <div className={styles.messageCard}>
+              <h2>Welcome to Staking Platform</h2>
+              <p>
+                Please connect your wallet to start staking and unstaking
+                tokens.
+              </p>
+              <div className={styles.connectPrompt}>
+                <ConnectButton
+                  label="Connect Wallet to Continue"
+                  showBalance={false}
+                  accountStatus="address"
+                />
+              </div>
+            </div>
+          </div>
+        )}
 
-        {/* History Records Section */}
-        <HistoryTable records={historyRecords} />
+        {/* Staking Operations Section - Only show if wallet is connected */}
+        {isConnected && (
+          <StakingActions onStake={handleStake} onUnstake={handleUnstake} />
+        )}
+
+        {/* History Records Section - Only show if wallet is connected */}
+        {isConnected && <HistoryTable records={historyRecords} />}
       </main>
     </div>
   );

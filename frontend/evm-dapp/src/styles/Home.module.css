@@ -42,6 +42,43 @@
   align-items: center;
 }
 
+.walletMessage {
+  width: 100%;
+  max-width: 600px;
+  margin: 2rem auto;
+  padding: 0 1rem;
+}
+
+.messageCard {
+  background: rgba(255, 255, 255, 0.95);
+  border-radius: 16px;
+  padding: 3rem 2rem;
+  text-align: center;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.messageCard h2 {
+  margin: 0 0 1rem 0;
+  color: #2d3748;
+  font-size: 1.8rem;
+  font-weight: 600;
+}
+
+.messageCard p {
+  margin: 0 0 2rem 0;
+  color: #4a5568;
+  font-size: 1.1rem;
+  line-height: 1.6;
+}
+
+.connectPrompt {
+  display: flex;
+  justify-content: center;
+  margin-top: 1.5rem;
+}
+
 .footer {
   display: flex;
   flex: 1;
@@ -138,6 +175,18 @@
   
   .pageTitle {
     font-size: 1.5rem;
+  }
+  
+  .messageCard {
+    padding: 2rem 1.5rem;
+  }
+  
+  .messageCard h2 {
+    font-size: 1.5rem;
+  }
+  
+  .messageCard p {
+    font-size: 1rem;
   }
   
   .grid {

@@ -1,5 +1,8 @@
-import React, { useState } from "react";
+import React from "react";
 import styles from "../styles/StakingActions.module.css";
+import { useAccount } from "wagmi";
+import StakeTokens from "./StakeTokens";
+import UnstakeTokens from "./UnstakeTokens";
 
 interface StakingActionsProps {
   onStake: (amount: string) => void;
@@ -12,70 +15,37 @@ const StakingActions: React.FC<StakingActionsProps> = ({
   onUnstake,
   isLoading = false,
 }) => {
-  const [stakeAmount, setStakeAmount] = useState("");
-  const [unstakeAmount, setUnstakeAmount] = useState("");
-
-  const handleStake = () => {
-    if (stakeAmount && !isLoading) {
-      onStake(stakeAmount);
-      setStakeAmount("");
-    }
-  };
-
-  const handleUnstake = () => {
-    if (unstakeAmount && !isLoading) {
-      onUnstake(unstakeAmount);
-      setUnstakeAmount("");
-    }
-  };
+  const { isConnected } = useAccount();
 
   return (
     <div className={styles.container}>
       <h2 className={styles.title}>Staking Operations</h2>
 
+      {!isConnected && (
+        <div className={styles.warningMessage}>
+          <p>⚠️ Please connect your wallet to perform staking operations</p>
+        </div>
+      )}
+
       <div className={styles.actionsGrid}>
         {/* Stake Section */}
-        <div className={styles.actionCard}>
+        <div
+          className={`${styles.actionCard} ${
+            !isConnected ? styles.disabled : ""
+          }`}
+        >
           <h3 className={styles.actionTitle}>Stake Tokens</h3>
-          <div className={styles.inputGroup}>
-            <input
-              type="number"
-              value={stakeAmount}
-              onChange={(e) => setStakeAmount(e.target.value)}
-              placeholder="Enter stake amount"
-              className={styles.input}
-              disabled={isLoading}
-            />
-            <button
-              onClick={handleStake}
-              disabled={!stakeAmount || isLoading}
-              className={`${styles.button} ${styles.stakeButton}`}
-            >
-              {isLoading ? "Processing..." : "Stake"}
-            </button>
-          </div>
+          <StakeTokens onStake={onStake} isLoading={isLoading} />
         </div>
 
         {/* Unstake Section */}
-        <div className={styles.actionCard}>
+        <div
+          className={`${styles.actionCard} ${
+            !isConnected ? styles.disabled : ""
+          }`}
+        >
           <h3 className={styles.actionTitle}>Unstake Tokens</h3>
-          <div className={styles.inputGroup}>
-            <input
-              type="number"
-              value={unstakeAmount}
-              onChange={(e) => setUnstakeAmount(e.target.value)}
-              placeholder="Enter unstake amount"
-              className={styles.input}
-              disabled={isLoading}
-            />
-            <button
-              onClick={handleUnstake}
-              disabled={!unstakeAmount || isLoading}
-              className={`${styles.button} ${styles.unstakeButton}`}
-            >
-              {isLoading ? "Processing..." : "Unstake"}
-            </button>
-          </div>
+          <UnstakeTokens onUnstake={onUnstake} isLoading={isLoading} />
         </div>
       </div>
     </div>

@@ -1,4 +1,4 @@
-export const RESTRICTED_STAKING_TOKEN_ABI = [
+export const stakingTokenAbi = [
   {
     inputs: [
       { internalType: "string", name: "name", type: "string" },

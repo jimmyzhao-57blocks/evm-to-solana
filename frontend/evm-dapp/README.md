@@ -41,6 +41,29 @@ A clean and modern staking platform that supports token staking and unstaking op
 
 ## Development
 
+### Environment Setup
+
+1. Copy the environment variables template:
+
+```bash
+cp env.example .env.local
+```
+
+2. Update `.env.local` with your actual values:
+
+```bash
+# Alchemy RPC URL for Sepolia testnet
+NEXT_PUBLIC_ALCHEMY_RPC_URL=https://eth-sepolia.g.alchemy.com/v2/YOUR_API_KEY
+
+# Enable testnets (true/false)
+NEXT_PUBLIC_ENABLE_TESTNETS=true
+
+# WalletConnect Project ID
+NEXT_PUBLIC_PROJECT_ID=YOUR_PROJECT_ID
+```
+
+### Install Dependencies
+
 ```bash
 # Install dependencies
 npm install
@@ -74,9 +97,6 @@ src/
 ## Customization
 
 ### Contract interaction
-
-- Staking Token: 0xe0E6dcB456e4A290Cd01d5023Ac41BCb0c578536
-- Reward Token: 0x1470f2b1F47bEF3D9957499Fc9F582bfC075583f
 
 ### Adding Smart Contract Integration
 
