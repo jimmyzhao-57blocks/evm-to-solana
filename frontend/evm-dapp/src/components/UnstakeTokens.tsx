@@ -1,6 +1,12 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import styles from "../styles/StakingActions.module.css";
-import { useAccount } from "wagmi";
+import {
+  useAccount,
+  useWaitForTransactionReceipt,
+  useWriteContract,
+} from "wagmi";
+import { STAKING_CONTRACT_ADDRESS } from "../../consts";
+import { stakingAbi } from "../../abi/stakeAbi";
 
 interface UnstakeTokensProps {
   onUnstake: (amount: string) => void;
@@ -15,34 +21,82 @@ const UnstakeTokens: React.FC<UnstakeTokensProps> = ({
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const { isConnected } = useAccount();
 
+  const {
+    writeContract,
+    data: unstakeHash,
+    error: writeError,
+  } = useWriteContract();
+
+  const {
+    isLoading: isUnstakingLoading,
+    isSuccess: isUnstakingSuccess,
+    error: isUnstakingError,
+  } = useWaitForTransactionReceipt({
+    hash: unstakeHash,
+  });
+
+  // Handle error messages
+  useEffect(() => {
+    if (writeError) {
+      setErrorMessage(
+        `Transaction failed: ${writeError.message || "Unknown error occurred"}`
+      );
+    } else if (isUnstakingError) {
+      setErrorMessage(
+        `Unstaking failed: ${
+          isUnstakingError.message || "Transaction reverted"
+        }`
+      );
+    } else if (isUnstakingSuccess) {
+      setErrorMessage(null);
+      // Call the onUnstake callback when unstaking is successful
+      if (unstakeAmount) {
+        onUnstake(unstakeAmount);
+        setUnstakeAmount("");
+      }
+    }
+  }, [
+    writeError,
+    isUnstakingError,
+    isUnstakingSuccess,
+    unstakeAmount,
+    onUnstake,
+  ]);
+
   // Clear error message when user starts a new action
   const clearError = () => {
     setErrorMessage(null);
   };
 
-  const handleUnstake = () => {
+  const handleUnstake = async () => {
     if (!isConnected) {
       alert("Please connect your wallet first");
       return;
     }
 
+    if (!unstakeAmount || isUnstakingLoading || isLoading) {
+      return;
+    }
+
     clearError(); // Clear any previous errors
 
-    if (unstakeAmount && !isLoading) {
-      try {
-        onUnstake(unstakeAmount);
-        setUnstakeAmount("");
-      } catch (error) {
-        setErrorMessage(
-          `Failed to initiate unstake: ${
-            error instanceof Error ? error.message : "Unknown error"
-          }`
-        );
-      }
+    try {
+      writeContract({
+        address: STAKING_CONTRACT_ADDRESS,
+        abi: stakingAbi,
+        functionName: "unstake",
+        args: [unstakeAmount],
+      });
+    } catch (error) {
+      setErrorMessage(
+        `Failed to initiate unstake: ${
+          error instanceof Error ? error.message : "Unknown error"
+        }`
+      );
     }
   };
 
-  const isDisabled = !isConnected || isLoading;
+  const isDisabled = !isConnected || isUnstakingLoading || isLoading;
 
   return (
     <div>
@@ -81,7 +135,7 @@ const UnstakeTokens: React.FC<UnstakeTokensProps> = ({
             isDisabled ? styles.disabledButton : ""
           }`}
         >
-          {isLoading ? "Processing..." : "Unstake"}
+          {isUnstakingLoading ? "Processing..." : "Unstake"}
         </button>
       </div>
     </div>

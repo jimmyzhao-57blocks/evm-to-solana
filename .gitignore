@@ -9,6 +9,7 @@ frontend/*/out/
 
 # production
 frontend/**/build
+frontend/*/tsconfig.tsbuildinfo
 
 # debug
 frontend/*/npm-debug.log*

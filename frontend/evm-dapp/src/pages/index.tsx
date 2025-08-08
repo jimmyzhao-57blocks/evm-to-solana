@@ -75,13 +75,9 @@ const Home: NextPage = () => {
       return;
     }
 
-    setIsLoading(true);
     try {
-      // Add actual unstaking logic here
+      // Unstaking logic is now handled in UnstakeTokens component
       console.log("Unstaking amount:", amount);
-
-      // Simulate API call delay
-      await new Promise((resolve) => setTimeout(resolve, 2000));
 
       // Add new history record
       const newRecord = {
@@ -95,8 +91,6 @@ const Home: NextPage = () => {
       setHistoryRecords((prev) => [newRecord, ...prev]);
     } catch (error) {
       console.error("Unstaking failed:", error);
-    } finally {
-      setIsLoading(false);
     }
   };
 
