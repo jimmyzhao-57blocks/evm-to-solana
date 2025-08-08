@@ -1,12 +1,12 @@
 import { ConnectButton } from "@rainbow-me/rainbowkit";
 import type { NextPage } from "next";
 import Head from "next/head";
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { useAccount } from "wagmi";
 import styles from "../styles/Home.module.css";
 import StakingActions from "../components/StakingActions";
 import HistoryTable from "../components/HistoryTable";
-import StakeInfo from "../components/StakeInfo";
+import StakeInfo, { StakeInfoRef } from "../components/StakeInfo";
 import "dotenv/config";
 
 // Mock history records data
@@ -38,6 +38,12 @@ const Home: NextPage = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [historyRecords, setHistoryRecords] = useState(mockHistoryRecords);
   const { address, isConnected } = useAccount();
+  const stakeInfoRef = useRef<StakeInfoRef>(null);
+
+  const handleTransactionSuccess = () => {
+    // Refresh stake information immediately after successful transaction
+    stakeInfoRef.current?.refresh();
+  };
 
   const handleStake = async (amount: string) => {
     if (!isConnected) {
@@ -144,12 +150,16 @@ const Home: NextPage = () => {
           <div className={styles.contentGrid}>
             {/* Left Column - Stake Information */}
             <div className={styles.leftColumn}>
-              <StakeInfo />
+              <StakeInfo ref={stakeInfoRef} />
             </div>
 
             {/* Right Column - Staking Actions */}
             <div className={styles.rightColumn}>
-              <StakingActions onStake={handleStake} onUnstake={handleUnstake} />
+              <StakingActions
+                onStake={handleStake}
+                onUnstake={handleUnstake}
+                onTransactionSuccess={handleTransactionSuccess}
+              />
             </div>
           </div>
         )}

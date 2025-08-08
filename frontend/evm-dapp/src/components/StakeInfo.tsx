@@ -1,4 +1,9 @@
-import React, { useState, useEffect } from "react";
+import React, {
+  useState,
+  useEffect,
+  useImperativeHandle,
+  forwardRef,
+} from "react";
 import { useAccount, useReadContract } from "wagmi";
 import { STAKING_CONTRACT_ADDRESS } from "../../consts";
 import { stakingAbi } from "../../abi/stakeAbi";
@@ -12,7 +17,11 @@ interface StakeInfoData {
   claimedReward: bigint;
 }
 
-const StakeInfo: React.FC = () => {
+export interface StakeInfoRef {
+  refresh: () => void;
+}
+
+const StakeInfo = forwardRef<StakeInfoRef>((props, ref) => {
   const { address, isConnected } = useAccount();
   const [stakeInfo, setStakeInfo] = useState<StakeInfoData | null>(null);
   const [isLoading, setIsLoading] = useState(false);
@@ -57,22 +66,31 @@ const StakeInfo: React.FC = () => {
     }
   }, [readError]);
 
-  const formatAmount = (amount: bigint) => {
-    // Convert from wei to ether (assuming 18 decimals)
-    const etherAmount = Number(amount) / Math.pow(10, 18);
-    return etherAmount.toFixed(4);
-  };
-
   const formatTimestamp = (timestamp: bigint) => {
     if (timestamp === BigInt(0)) return "Not staked yet";
     const date = new Date(Number(timestamp) * 1000);
     return date.toLocaleString("en-US");
   };
 
-  const handleRefresh = () => {
+  const handleRefresh = async () => {
     setIsLoading(true);
-    refetch().finally(() => setIsLoading(false));
+    try {
+      await refetch();
+    } catch (error) {
+      setError(
+        `Failed to refresh: ${
+          error instanceof Error ? error.message : "Unknown error"
+        }`
+      );
+    } finally {
+      setIsLoading(false);
+    }
   };
+
+  // Expose refresh method to parent component
+  useImperativeHandle(ref, () => ({
+    refresh: handleRefresh,
+  }));
 
   if (!isConnected) {
     return (
@@ -112,9 +130,7 @@ const StakeInfo: React.FC = () => {
         <div className={styles.infoGrid}>
           <div className={styles.infoCard}>
             <h4 className={styles.infoTitle}>Staked Amount</h4>
-            <p className={styles.infoValue}>
-              {formatAmount(stakeInfo.stakedAmount)} Tokens
-            </p>
+            <p className={styles.infoValue}>{stakeInfo.stakedAmount} Tokens</p>
           </div>
 
           <div className={styles.infoCard}>
@@ -128,16 +144,12 @@ const StakeInfo: React.FC = () => {
 
           <div className={styles.infoCard}>
             <h4 className={styles.infoTitle}>Pending Rewards</h4>
-            <p className={styles.infoValue}>
-              {formatAmount(stakeInfo.pendingReward)} Tokens
-            </p>
+            <p className={styles.infoValue}>{stakeInfo.pendingReward} Tokens</p>
           </div>
 
           <div className={styles.infoCard}>
             <h4 className={styles.infoTitle}>Claimed Rewards</h4>
-            <p className={styles.infoValue}>
-              {formatAmount(stakeInfo.claimedReward)} Tokens
-            </p>
+            <p className={styles.infoValue}>{stakeInfo.claimedReward} Tokens</p>
           </div>
         </div>
       ) : (
@@ -147,6 +159,8 @@ const StakeInfo: React.FC = () => {
       )}
     </div>
   );
-};
+});
+
+StakeInfo.displayName = "StakeInfo";
 
 export default StakeInfo;

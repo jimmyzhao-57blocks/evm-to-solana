@@ -12,11 +12,13 @@ import { stakingTokenAbi } from "../../abi/StakingTokenABI";
 interface StakeTokensProps {
   onStake: (amount: string) => void;
   isLoading?: boolean;
+  onTransactionSuccess?: () => void;
 }
 
 const StakeTokens: React.FC<StakeTokensProps> = ({
   onStake,
   isLoading = false,
+  onTransactionSuccess,
 }) => {
   const [stakeAmount, setStakeAmount] = useState("");
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -78,6 +80,10 @@ const StakeTokens: React.FC<StakeTokensProps> = ({
       if (stakeAmount) {
         onStake(stakeAmount);
         setStakeAmount("");
+        // Notify parent component to refresh stake information immediately after transaction success
+        if (onTransactionSuccess) {
+          onTransactionSuccess();
+        }
       }
     }
   }, [

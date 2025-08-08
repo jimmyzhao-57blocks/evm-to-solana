@@ -11,11 +11,13 @@ import { stakingAbi } from "../../abi/stakeAbi";
 interface UnstakeTokensProps {
   onUnstake: (amount: string) => void;
   isLoading?: boolean;
+  onTransactionSuccess?: () => void;
 }
 
 const UnstakeTokens: React.FC<UnstakeTokensProps> = ({
   onUnstake,
   isLoading = false,
+  onTransactionSuccess,
 }) => {
   const [unstakeAmount, setUnstakeAmount] = useState("");
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -53,6 +55,10 @@ const UnstakeTokens: React.FC<UnstakeTokensProps> = ({
       if (unstakeAmount) {
         onUnstake(unstakeAmount);
         setUnstakeAmount("");
+        // Notify parent component to refresh stake information immediately after transaction success
+        if (onTransactionSuccess) {
+          onTransactionSuccess();
+        }
       }
     }
   }, [
