@@ -10,6 +10,9 @@
   display: flex;
   flex-direction: column;
   align-items: center;
+  max-width: 1400px;
+  margin: 0 auto;
+  width: 100%;
 }
 
 .header {
@@ -77,6 +80,33 @@
   display: flex;
   justify-content: center;
   margin-top: 1.5rem;
+}
+
+/* New Layout Styles */
+.contentGrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 2rem;
+  width: 100%;
+  max-width: 1200px;
+  margin-bottom: 3rem;
+  padding: 0 1rem;
+}
+
+.leftColumn {
+  display: flex;
+  flex-direction: column;
+}
+
+.rightColumn {
+  display: flex;
+  flex-direction: column;
+}
+
+.historySection {
+  width: 100%;
+  max-width: 1200px;
+  padding: 0 1rem;
 }
 
 .footer {
@@ -161,6 +191,18 @@
   line-height: 1.5;
 }
 
+@media (max-width: 1024px) {
+  .contentGrid {
+    grid-template-columns: 1fr;
+    gap: 1.5rem;
+  }
+  
+  .leftColumn,
+  .rightColumn {
+    order: 0;
+  }
+}
+
 @media (max-width: 768px) {
   .container {
     padding: 0 1rem;
@@ -187,6 +229,15 @@
   
   .messageCard p {
     font-size: 1rem;
+  }
+  
+  .contentGrid {
+    gap: 1rem;
+    padding: 0 0.5rem;
+  }
+  
+  .historySection {
+    padding: 0 0.5rem;
   }
   
   .grid {

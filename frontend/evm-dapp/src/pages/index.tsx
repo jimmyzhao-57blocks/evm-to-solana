@@ -6,6 +6,7 @@ import { useAccount } from "wagmi";
 import styles from "../styles/Home.module.css";
 import StakingActions from "../components/StakingActions";
 import HistoryTable from "../components/HistoryTable";
+import StakeInfo from "../components/StakeInfo";
 import "dotenv/config";
 
 // Mock history records data
@@ -138,13 +139,27 @@ const Home: NextPage = () => {
           </div>
         )}
 
-        {/* Staking Operations Section - Only show if wallet is connected */}
+        {/* Main Content Section - Only show if wallet is connected */}
         {isConnected && (
-          <StakingActions onStake={handleStake} onUnstake={handleUnstake} />
+          <div className={styles.contentGrid}>
+            {/* Left Column - Stake Information */}
+            <div className={styles.leftColumn}>
+              <StakeInfo />
+            </div>
+
+            {/* Right Column - Staking Actions */}
+            <div className={styles.rightColumn}>
+              <StakingActions onStake={handleStake} onUnstake={handleUnstake} />
+            </div>
+          </div>
         )}
 
         {/* History Records Section - Only show if wallet is connected */}
-        {isConnected && <HistoryTable records={historyRecords} />}
+        {isConnected && (
+          <div className={styles.historySection}>
+            <HistoryTable records={historyRecords} />
+          </div>
+        )}
       </main>
     </div>
   );

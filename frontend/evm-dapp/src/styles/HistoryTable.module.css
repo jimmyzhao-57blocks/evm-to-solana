@@ -1,10 +1,12 @@
 .tableContainer {
   width: 100%;
-  max-width: 800px;
-  margin: 2rem auto;
-  background: white;
-  border-radius: 12px;
-  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  max-width: 100%;
+  margin: 0;
+  background: rgba(255, 255, 255, 0.95);
+  border-radius: 16px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.2);
   overflow: hidden;
 }
 
@@ -15,6 +17,7 @@
   color: white;
   font-size: 1.25rem;
   font-weight: 600;
+  text-align: center;
 }
 
 .tableWrapper {
@@ -28,22 +31,22 @@
 }
 
 .table th {
-  background-color: #f8f9fa;
+  background: linear-gradient(135deg, rgba(102, 126, 234, 0.1) 0%, rgba(118, 75, 162, 0.1) 100%);
   padding: 1rem;
   text-align: left;
   font-weight: 600;
-  color: #495057;
-  border-bottom: 2px solid #e9ecef;
+  color: #2d3748;
+  border-bottom: 2px solid rgba(102, 126, 234, 0.2);
 }
 
 .table td {
   padding: 1rem;
-  border-bottom: 1px solid #e9ecef;
-  color: #495057;
+  border-bottom: 1px solid rgba(102, 126, 234, 0.1);
+  color: #4a5568;
 }
 
 .table tbody tr:hover {
-  background-color: #f8f9fa;
+  background: linear-gradient(135deg, rgba(102, 126, 234, 0.05) 0%, rgba(118, 75, 162, 0.05) 100%);
 }
 
 .status {
@@ -56,18 +59,21 @@
 }
 
 .statusCompleted {
-  background-color: #d4edda;
+  background: linear-gradient(135deg, rgba(72, 187, 120, 0.2) 0%, rgba(56, 161, 105, 0.2) 100%);
   color: #155724;
+  border: 1px solid rgba(72, 187, 120, 0.3);
 }
 
 .statusPending {
-  background-color: #fff3cd;
+  background: linear-gradient(135deg, rgba(255, 193, 7, 0.2) 0%, rgba(255, 152, 0, 0.2) 100%);
   color: #856404;
+  border: 1px solid rgba(255, 193, 7, 0.3);
 }
 
 .statusFailed {
-  background-color: #f8d7da;
+  background: linear-gradient(135deg, rgba(245, 101, 101, 0.2) 0%, rgba(229, 62, 62, 0.2) 100%);
   color: #721c24;
+  border: 1px solid rgba(245, 101, 101, 0.3);
 }
 
 .emptyMessage {
@@ -75,6 +81,7 @@
   color: #6c757d;
   font-style: italic;
   padding: 2rem;
+  background: rgba(248, 249, 250, 0.5);
 }
 
 @media (max-width: 768px) {
