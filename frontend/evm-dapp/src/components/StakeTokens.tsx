@@ -141,6 +141,19 @@ const StakeTokens: React.FC<StakeTokensProps> = ({
       return;
     }
 
+    // Validate input - check for negative numbers and decimals
+    const amount = parseInt(stakeAmount);
+    if (isNaN(amount) || amount <= 0) {
+      setErrorMessage("Please enter a valid positive integer");
+      return;
+    }
+
+    // Check if the input contains decimals
+    if (stakeAmount.includes(".") || stakeAmount.includes(",")) {
+      setErrorMessage("Please enter a whole number (no decimals)");
+      return;
+    }
+
     clearError(); // Clear any previous errors
     setIsApproving(true);
     setApprovalHash(null); // Clear any previous approval hash
@@ -151,7 +164,7 @@ const StakeTokens: React.FC<StakeTokensProps> = ({
         address: STAKING_TOKEN_ADDRESS,
         abi: stakingTokenAbi,
         functionName: "approve",
-        args: [STAKING_CONTRACT_ADDRESS, stakeAmount],
+        args: [stakeAmount],
       });
     } catch (error) {
       setErrorMessage(
@@ -192,17 +205,32 @@ const StakeTokens: React.FC<StakeTokensProps> = ({
       <div className={styles.inputGroup}>
         <input
           type="number"
+          min="0"
+          step="1"
           value={stakeAmount}
-          onChange={(e) => setStakeAmount(e.target.value)}
+          onChange={(e) => {
+            const value = e.target.value;
+            // Only allow positive integers or empty string
+            if (
+              value === "" ||
+              (parseInt(value) >= 0 &&
+                !value.includes(".") &&
+                !value.includes(","))
+            ) {
+              setStakeAmount(value);
+            }
+          }}
           placeholder={
-            isConnected ? "Enter stake amount" : "Connect wallet first"
+            isConnected
+              ? "Enter stake amount (whole number)"
+              : "Connect wallet first"
           }
           className={styles.input}
           disabled={isDisabled}
         />
         <button
           onClick={handleStake}
-          disabled={!stakeAmount || isDisabled}
+          disabled={!stakeAmount || isDisabled || parseInt(stakeAmount) <= 0}
           className={`${styles.button} ${styles.stakeButton} ${
             isDisabled ? styles.disabledButton : ""
           }`}

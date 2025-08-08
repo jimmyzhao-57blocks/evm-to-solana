@@ -84,6 +84,19 @@ const UnstakeTokens: React.FC<UnstakeTokensProps> = ({
       return;
     }
 
+    // Validate input - check for negative numbers and decimals
+    const amount = parseInt(unstakeAmount);
+    if (isNaN(amount) || amount <= 0) {
+      setErrorMessage("Please enter a valid positive integer");
+      return;
+    }
+
+    // Check if the input contains decimals
+    if (unstakeAmount.includes(".") || unstakeAmount.includes(",")) {
+      setErrorMessage("Please enter a whole number (no decimals)");
+      return;
+    }
+
     clearError(); // Clear any previous errors
 
     try {
@@ -126,17 +139,34 @@ const UnstakeTokens: React.FC<UnstakeTokensProps> = ({
       <div className={styles.inputGroup}>
         <input
           type="number"
+          min="0"
+          step="1"
           value={unstakeAmount}
-          onChange={(e) => setUnstakeAmount(e.target.value)}
+          onChange={(e) => {
+            const value = e.target.value;
+            // Only allow positive integers or empty string
+            if (
+              value === "" ||
+              (parseInt(value) >= 0 &&
+                !value.includes(".") &&
+                !value.includes(","))
+            ) {
+              setUnstakeAmount(value);
+            }
+          }}
           placeholder={
-            isConnected ? "Enter unstake amount" : "Connect wallet first"
+            isConnected
+              ? "Enter unstake amount (whole number)"
+              : "Connect wallet first"
           }
           className={styles.input}
           disabled={isDisabled}
         />
         <button
           onClick={handleUnstake}
-          disabled={!unstakeAmount || isDisabled}
+          disabled={
+            !unstakeAmount || isDisabled || parseInt(unstakeAmount) <= 0
+          }
           className={`${styles.button} ${styles.unstakeButton} ${
             isDisabled ? styles.disabledButton : ""
           }`}
